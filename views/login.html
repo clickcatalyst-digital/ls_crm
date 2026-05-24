@@ -1,0 +1,81 @@
+<!-- views/login.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | LS Technology Inventory</title>
+  <link rel="stylesheet" href="/public/css/style.css">
+</head>
+<body>
+  <div style="min-height:100vh; display:flex; align-items:center; justify-content:center;">
+    <div style="width:100%; max-width:380px; padding:20px;">
+      <div style="text-align:center; margin-bottom:32px;">
+        <h1 style="font-size:18px; font-weight:700; letter-spacing:-0.5px;">LS TECHNOLOGY</h1>
+        <p style="color:var(--text-muted); font-size:12px; margin-top:4px;">Inventory Management System</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Login</div>
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="username" class="form-control" placeholder="Enter username" autofocus>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="password" class="form-control" placeholder="Enter password">
+        </div>
+        <button class="btn btn-primary btn-block" onclick="login()" id="loginBtn">Login</button>
+        <div id="loginError" style="display:none; margin-top:12px; color:var(--danger); font-size:13px; text-align:center;"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    async function login() {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const errorEl = document.getElementById('loginError');
+      const btn = document.getElementById('loginBtn');
+
+      if (!username || !password) {
+        errorEl.textContent = 'Enter both username and password';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Logging in...';
+      errorEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          document.cookie = `token=${data.token}; path=/; max-age=${30*24*60*60}; SameSite=Strict`;
+          window.location.href = '/';
+        } else {
+          errorEl.textContent = data.error || 'Login failed';
+          errorEl.style.display = 'block';
+        }
+      } catch (e) {
+        errorEl.textContent = 'Connection error. Try again.';
+        errorEl.style.display = 'block';
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Login';
+    }
+
+    document.getElementById('password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') login();
+    });
+    document.getElementById('username').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('password').focus();
+    });
+  </script>
+</body>
+</html>

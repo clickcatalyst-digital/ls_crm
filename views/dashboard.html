@@ -1,0 +1,183 @@
+<!-- views/dashboard.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard | ClickCatalyst CRM</title>
+  <link rel="stylesheet" href="/public/css/style.css">
+  <style>
+    /* ===== CRM-specific layout (kept out of shared style.css) ===== */
+    .crm-shell { display: flex; max-width: 1280px; margin: 0 auto; }
+    .crm-sidebar {
+      width: 280px; flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      padding: 24px 16px; min-height: calc(100vh - 52px);
+    }
+    .crm-main { flex: 1; min-width: 0; padding: 24px 16px; }
+    .sidebar-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-muted);
+      margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .sidebar-title .count-pill {
+      background: var(--primary); color: #fff; font-size: 10px;
+      padding: 2px 7px; border-radius: 10px;
+    }
+    .task-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 11px 12px; margin-bottom: 8px;
+      transition: border-color 0.15s;
+    }
+    .task-item:hover { border-color: var(--text-muted); }
+    .task-item.overdue { border-left: 3px solid var(--danger); }
+    .task-item .task-poc { font-weight: 700; font-size: 13px; }
+    .task-item .task-company { font-size: 11px; color: var(--text-muted); }
+    .task-item .task-title { font-size: 12px; margin-top: 4px; }
+    .task-item .task-foot {
+      display: flex; align-items: center; justify-content: space-between; margin-top: 8px;
+    }
+    .task-item .task-due { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+    .task-done-btn {
+      background: none; border: 1px solid var(--border); color: var(--success);
+      border-radius: var(--radius); padding: 3px 8px; font-size: 10px; font-weight: 700;
+      cursor: pointer; font-family: var(--font); text-transform: uppercase; letter-spacing: 0.4px;
+      transition: all 0.15s;
+    }
+    .task-done-btn:hover { background: var(--success); color: #fff; border-color: var(--success); }
+    .empty-tasks { color: var(--text-muted); font-size: 12px; text-align: center; padding: 24px 8px; }
+    @media (max-width: 900px) {
+      .crm-shell { flex-direction: column; }
+      .crm-sidebar { width: auto; min-height: 0; border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/" class="nav-brand">CLICK<span>CATALYST</span> CRM</a>
+    <div class="nav-links">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+        <svg id="themeIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/>
+        </svg>
+      </button>
+      <a href="/" class="active">Dashboard</a>
+      <a href="/clients">Clients</a>
+    </div>
+    <div class="cog-menu" id="cogMenu">
+      <button class="cog-btn" onclick="toggleCogMenu()" title="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+        </svg>
+      </button>
+      <div class="cog-dropdown" id="cogDropdown">
+        <button onclick="toggleTheme(); toggleCogMenu()">
+          <svg viewBox="0 0 24 24" id="cogThemeIcon" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/>
+          </svg>
+          <span id="cogThemeLabel">Dark Mode</span>
+        </button>
+        <a href="/api/logout" class="logout-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h6a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 16.5 21h-6a2.25 2.25 0 0 1-2.25-2.25V15m-3 0-3-3m0 0 3-3m-3 3H15"/>
+          </svg>
+          Logout
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="crm-shell">
+    <!-- SIDEBAR: today's tasks -->
+    <aside class="crm-sidebar">
+      <div class="sidebar-title">
+        Today's Touchpoints <span class="count-pill" id="taskCount">0</span>
+      </div>
+      <div id="taskList"><div class="empty-tasks">Loading…</div></div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="crm-main">
+      <div class="page-header">
+        <h1>Dashboard</h1>
+        <p>Pipeline overview and client metrics</p>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-value" id="mTotal">—</div><div class="stat-label">Total Contacts</div></div>
+        <div class="stat-box"><div class="stat-value" id="mQualified">—</div><div class="stat-label">Qualified</div></div>
+        <div class="stat-box"><div class="stat-value" id="mCustomers">—</div><div class="stat-label">Customers</div></div>
+        <div class="stat-box"><div class="stat-value" id="mConversion">—</div><div class="stat-label">Conversion %</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Pipeline by Stage</div>
+        <div id="stageBars"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/public/js/app.js"></script>
+  <script>
+    const STAGES = ['new', 'contacted', 'qualified', 'customer', 'lost'];
+    const STAGE_COLOR = { new: 'var(--text-muted)', contacted: 'var(--primary)', qualified: 'var(--warning)', customer: 'var(--success)', lost: 'var(--danger)' };
+
+    async function loadMetrics() {
+      try {
+        const m = await api('/api/clients/meta/metrics');
+        document.getElementById('mTotal').textContent = m.total;
+        document.getElementById('mQualified').textContent = m.qualified;
+        document.getElementById('mCustomers').textContent = m.customers;
+        document.getElementById('mConversion').textContent = m.conversion + '%';
+
+        const max = Math.max(1, ...STAGES.map(s => m.byStatus[s] || 0));
+        document.getElementById('stageBars').innerHTML = STAGES.map(s => {
+          const n = m.byStatus[s] || 0;
+          const pct = Math.round((n / max) * 100);
+          return `
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+              <div style="width:90px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:var(--text-muted);">${s}</div>
+              <div style="flex:1; background:var(--bg); border-radius:4px; height:22px; overflow:hidden;">
+                <div style="width:${pct}%; height:100%; background:${STAGE_COLOR[s]}; transition:width 0.4s;"></div>
+              </div>
+              <div style="width:36px; text-align:right; font-weight:700; font-size:13px;">${n}</div>
+            </div>`;
+        }).join('');
+      } catch (e) {}
+    }
+
+    async function loadTasks() {
+      try {
+        const tasks = await api('/api/tasks/today');
+        document.getElementById('taskCount').textContent = tasks.length;
+        const list = document.getElementById('taskList');
+        if (!tasks.length) { list.innerHTML = '<div class="empty-tasks">No touchpoints today 🎉</div>'; return; }
+        const today = new Date().toISOString().substring(0, 10);
+        list.innerHTML = tasks.map(t => {
+          const overdue = t.due_date < today;
+          return `
+            <div class="task-item ${overdue ? 'overdue' : ''}">
+              <div class="task-poc">${t.poc_name || 'General'}</div>
+              ${t.company_name ? `<div class="task-company">${t.company_name}</div>` : ''}
+              <div class="task-title">${t.title}</div>
+              <div class="task-foot">
+                <span class="task-due" style="color:${overdue ? 'var(--danger)' : 'var(--text-muted)'}">
+                  ${overdue ? 'Overdue · ' : ''}${formatDate(t.due_date)}
+                </span>
+                <button class="task-done-btn" onclick="completeTask(${t.id})">Done</button>
+              </div>
+            </div>`;
+        }).join('');
+      } catch (e) {}
+    }
+
+    async function completeTask(id) {
+      try { await api(`/api/tasks/${id}/done`, { method: 'POST' }); showToast('Task completed'); loadTasks(); }
+      catch (e) {}
+    }
+
+    loadMetrics();
+    loadTasks();
+  </script>
+</body>
+</html>
