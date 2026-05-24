@@ -86,7 +86,7 @@ function requireLogin(req, res, next) {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\nClickCatalyst CRM running at:`);
+    console.log(`\nLS CRM running at:`);
     console.log(`   Local:   http://localhost:${PORT}`);
     ips.forEach(ip => console.log(`   Network: http://${ip}:${PORT}`));
     console.log('');
