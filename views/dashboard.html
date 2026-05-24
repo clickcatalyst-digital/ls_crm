@@ -91,7 +91,7 @@
     <!-- SIDEBAR: today's tasks -->
     <aside class="crm-sidebar">
       <div class="sidebar-title">
-        Today's Touchpoints <span class="count-pill" id="taskCount">0</span>
+        TASKS <span class="count-pill" id="taskCount">0</span>
       </div>
       <div id="taskList"><div class="empty-tasks">Loading…</div></div>
     </aside>
@@ -151,7 +151,7 @@
         const tasks = await api('/api/tasks/today');
         document.getElementById('taskCount').textContent = tasks.length;
         const list = document.getElementById('taskList');
-        if (!tasks.length) { list.innerHTML = '<div class="empty-tasks">No touchpoints today 🎉</div>'; return; }
+        if (!tasks.length) { list.innerHTML = '<div class="empty-tasks">Nothing for today 🎉</div>'; return; }
         const today = new Date().toISOString().substring(0, 10);
         list.innerHTML = tasks.map(t => {
           const overdue = t.due_date < today;
