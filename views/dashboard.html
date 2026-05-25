@@ -140,6 +140,7 @@
       display:inline-flex; background:var(--bg); border:1px solid var(--border);
       border-radius:var(--radius); padding:2px;
     }
+    .sidebar-title-actions { display: flex; align-items: center; gap: 8px; }
     .scope-toggle button {
       background:none; border:none; font-family:var(--font);
       font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;
@@ -219,11 +220,13 @@
       <div class="sidebar-expanded">
         <div class="sidebar-title">
           <span>TASKS <span class="count-pill" id="taskCount">0</span></span>
-          <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Collapse">‹‹</button>
-        </div>
-        <div class="scope-toggle" id="scopeToggle" style="display:none;">
-          <button id="scopeMine" class="active" onclick="setScope('mine')">Mine</button>
-          <button id="scopeAll" onclick="setScope('all')">All</button>
+          <div class="sidebar-title-actions">
+            <div class="scope-toggle" id="scopeToggle" style="display:none;">
+              <button id="scopeMine" class="active" onclick="setScope('mine')">Mine</button>
+              <button id="scopeAll" onclick="setScope('all')">All</button>
+            </div>
+            <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Collapse">‹‹</button>
+          </div>
         </div>
         <div id="taskList"><div class="empty-tasks">Loading…</div></div>
       </div>
@@ -344,7 +347,7 @@
       }
       const isApprover = currentUser && ['admin','manager'].includes(currentUser.role);
       if (isApprover) {
-        document.getElementById('scopeToggle').style.display = 'flex';
+        document.getElementById('scopeToggle').style.display = 'inline-flex';
         try { assignableUsers = await api('/api/tasks/assignable'); } catch (e) {}
       }
       loadTasks();
