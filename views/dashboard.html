@@ -494,7 +494,7 @@
         </div>
         <div class="ov-footer">
         <button id="ovDoneBtn" class="ov-btn-done" onclick="overlayToggleDone()">Mark Done</button>
-        <button class="ov-btn-save" onclick="overlayUpdateTask()">Save</button>
+        <span id="overlaySaveArea"><button class="ov-btn-save" onclick="overlayUpdateTask()">Save</button></span>
         <a id="ovViewLink" class="ov-view-link" href="#" title="Open contact">↗</a>
         </div>
     </div>
@@ -504,6 +504,10 @@
   <script>
     const STAGES = ['new', 'contacted', 'qualified', 'customer', 'lost'];
     const STAGE_COLOR = { new: 'var(--text-muted)', contacted: 'var(--primary)', qualified: 'var(--warning)', customer: 'var(--success)', lost: 'var(--danger)' };
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeTaskOverlay();
+    });
 
     async function loadMetrics() {
       try {
@@ -775,9 +779,9 @@
             ${DOW[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}${iso===todayISO?' · Today':''}
           </div>
           ${tasks.map(t => `
-            <div class="agenda-task ${t.due_date<todayISO?'overdue':''}">
-              <div class="a-poc">${esc(t.poc_name) || 'General'}</div>
-              <div class="a-title">${esc(t.title)}</div>
+            <div class="agenda-task ${t.due_date<todayISO?'overdue':''}" onclick="openTaskOverlay(${t.id})" style="cursor:pointer;">
+                <div class="a-poc">${esc(t.poc_name) || 'General'}</div>
+                <div class="a-title">${esc(t.title)}</div>
             </div>`).join('')}
         </div>`).join('')}</div>`;
     }
@@ -889,6 +893,8 @@
         // Meta
         document.getElementById('ovDueDate').value = t.due_date || '';
         document.getElementById('ovDueDate').disabled = t.status === 'done';
+        document.getElementById('ovTitle').contentEditable = t.status === 'done' ? 'false' : 'true';
+        document.getElementById('overlaySaveArea').style.display = t.status === 'done' ? 'none' : '';
         document.getElementById('ovAssigned').innerHTML = _ovAvatarChip(t.assigned_to);
 
         // Done button
@@ -947,13 +953,19 @@
     }
 
     async function overlayToggleDone() {
-    if (!_ovTask) return;
-    const action = _ovTask.status === 'done' ? 'reopen' : 'done';
-    await api(`/api/tasks/${_ovTask.id}/${action}`, { method: 'POST' });
-    showToast(action === 'done' ? 'Task completed' : 'Task reopened');
-    closeTaskOverlay();
-    loadTasks();
-    renderCalendar();
+        if (!_ovTask) return;
+        const action = _ovTask.status === 'done' ? 'reopen' : 'done';
+        await api(`/api/tasks/${_ovTask.id}/${action}`, { method: 'POST' });
+        closeTaskOverlay();
+        if (action === 'done') {
+            showUndoToast('Task completed', async () => {
+            await api(`/api/tasks/${_ovTask.id}/reopen`, { method: 'POST' });
+            loadTasks(); renderCalendar();
+            });
+        } else {
+            showToast('Task reopened');
+        }
+        loadTasks(); renderCalendar();
     }
 
     async function overlayUpdateTask() {
