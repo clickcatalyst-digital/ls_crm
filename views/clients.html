@@ -99,6 +99,11 @@
           <div class="form-group"><label>Next Touchpoint</label><input type="date" id="aTouchpoint" class="form-control"></div>
           <div class="form-group"><label>Touchpoint Note</label><input type="text" id="aTouchTitle" class="form-control" placeholder="e.g. Follow-up call"></div>
         </div>
+        <div class="form-row-3">
+          <div class="form-group" id="aAssigneeGroup" style="display:none;"><label>Assign Touchpoint To</label>
+            <select id="aAssignee" class="form-control"><option value="">Me</option></select>
+          </div>
+        </div>
         <div class="form-group"><label>First Call Summary (optional)</label><input type="text" id="aNote" class="form-control" placeholder="Notes from first contact"></div>
         <button class="btn btn-primary" onclick="addClient()">Add Client</button>
       </div>
@@ -141,20 +146,31 @@
       pageSize: 10,
       titleText: 'All Clients',
       columns: [
-        { label: 'POC', render: c => `<strong style="cursor:pointer;color:var(--primary);" onclick="openClient(${c.id})">${c.poc_name}</strong>` },
-        { label: 'Company', render: c => c.company_name || '—' },
-        { label: 'Designation', render: c => c.designation || '—' },
-        { label: 'Product', render: c => c.product_name || '—' },
-        { label: 'Status', render: c => `<span class="badge ${STATUS_BADGE[c.status]||'badge-warning'}">${c.status}</span>` },
+        { label: 'POC', render: c => `<strong style="cursor:pointer;color:var(--primary);" onclick="openClient(${c.id})">${esc(c.poc_name)}</strong>` },
+        { label: 'Company', render: c => esc(c.company_name) || '—' },
+        { label: 'Designation', render: c => esc(c.designation) || '—' },
+        { label: 'Product', render: c => esc(c.product_name) || '—' },
+        { label: 'Status', render: c => `<span class="badge ${STATUS_BADGE[c.status]||'badge-warning'}">${esc(c.status)}</span>` },
       ]
     });
 
     let productsCache = [];
+    let assignableCache = [];
     async function loadProducts() {
       try {
         productsCache = await api('/api/products');
         document.getElementById('aProduct').innerHTML = '<option value="">— None —</option>' +
-          productsCache.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+          productsCache.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+      } catch (e) {}
+    }
+    async function loadAssignees() {
+      const me = await fetch('/api/auth/me').then(r => r.json()).catch(() => null);
+      if (!me || !['admin','manager'].includes(me.role)) return; // staff: touchpoint auto-assigns to self
+      try {
+        assignableCache = await api('/api/tasks/assignable');
+        document.getElementById('aAssigneeGroup').style.display = 'block';
+        document.getElementById('aAssignee').innerHTML = '<option value="">Me</option>' +
+          assignableCache.map(u => `<option value="${esc(u.username)}">${esc(u.username)}</option>`).join('');
       } catch (e) {}
     }
 
@@ -181,7 +197,8 @@
           product_id: document.getElementById('aProduct').value || null,
           note: document.getElementById('aNote').value.trim(),
           next_touchpoint: document.getElementById('aTouchpoint').value || null,
-          next_touchpoint_title: document.getElementById('aTouchTitle').value.trim()
+          next_touchpoint_title: document.getElementById('aTouchTitle').value.trim(),
+          next_touchpoint_assignee: (document.getElementById('aAssignee')?.value || null)
         }});
         showToast(`${poc} added`);
         document.querySelectorAll('#addForm input').forEach(i => i.value = '');
@@ -193,13 +210,17 @@
       try {
         const c = await api(`/api/clients/${id}`);
         const productOpts = '<option value="">— None —</option>' +
-          productsCache.map(p => `<option value="${p.id}" ${p.id===c.product_id?'selected':''}>${p.name}</option>`).join('');
+          productsCache.map(p => `<option value="${p.id}" ${p.id===c.product_id?'selected':''}>${esc(p.name)}</option>`).join('');
         document.getElementById('panelContent').innerHTML = `
-          <div style="font-size:18px; font-weight:700; letter-spacing:-0.5px;">${c.poc_name}</div>
+          <div style="font-size:18px; font-weight:700; letter-spacing:-0.5px;">${esc(c.poc_name)}</div>
           <div style="color:var(--text-muted); font-size:12px; margin-bottom:16px;">
-            ${c.designation ? c.designation + ' · ' : ''}${c.company_name || 'No company'}
+            ${c.designation ? esc(c.designation) + ' · ' : ''}${esc(c.company_name) || 'No company'}
           </div>
 
+          <div class="form-row">
+            <div class="form-group"><label>POC Name</label><input id="eName" class="form-control" value="${esc(c.poc_name)}"></div>
+            <div class="form-group"><label>Designation</label><input id="eDesignation" class="form-control" value="${esc(c.designation)}"></div>
+          </div>
           <div class="form-row">
             <div class="form-group"><label>Status</label>
               <select id="eStatus" class="form-control">
@@ -209,8 +230,8 @@
             <div class="form-group"><label>Product</label><select id="eProduct" class="form-control">${productOpts}</select></div>
           </div>
           <div class="form-row">
-            <div class="form-group"><label>Email</label><input id="eEmail" class="form-control" value="${c.email||''}"></div>
-            <div class="form-group"><label>Phone</label><input id="ePhone" class="form-control" value="${c.phone||''}"></div>
+            <div class="form-group"><label>Email</label><input id="eEmail" class="form-control" value="${esc(c.email)}"></div>
+            <div class="form-group"><label>Phone</label><input id="ePhone" class="form-control" value="${esc(c.phone)}"></div>
           </div>
           <button class="btn btn-primary btn-sm" onclick="saveClient(${c.id})">Save Changes</button>
 
@@ -222,8 +243,8 @@
           <div style="margin-top:16px;" id="notesThread">
             ${c.notes.length ? c.notes.map(n => `
               <div class="note-entry">
-                <div class="note-meta">${formatDateTime(n.created_at)} · ${n.created_by||'—'}</div>
-                <div class="note-body">${n.body}</div>
+                <div class="note-meta">${formatDateTime(n.created_at)} · ${esc(n.created_by) || '—'}</div>
+                <div class="note-body">${esc(n.body)}</div>
               </div>`).join('') : '<div style="color:var(--text-muted);font-size:12px;">No notes yet</div>'}
           </div>
         `;
@@ -240,12 +261,12 @@
     async function saveClient(id) {
       try {
         await api(`/api/clients/${id}`, { method: 'PUT', body: {
-          poc_name: document.getElementById('panelContent').querySelector('div').textContent,
+          poc_name: document.getElementById('eName').value.trim(),
+          designation: document.getElementById('eDesignation').value.trim(),
           status: document.getElementById('eStatus').value,
           product_id: document.getElementById('eProduct').value || null,
           email: document.getElementById('eEmail').value.trim(),
-          phone: document.getElementById('ePhone').value.trim(),
-          designation: null
+          phone: document.getElementById('ePhone').value.trim()
         }});
         showToast('Saved'); loadClients();
       } catch (e) {}
@@ -259,6 +280,7 @@
     }
 
     loadProducts();
+    loadAssignees();
     loadClients();
   </script>
   <nav class="bottom-nav">

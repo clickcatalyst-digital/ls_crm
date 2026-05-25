@@ -67,11 +67,13 @@ function requireLogin(req, res, next) {
   // Pages
   app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'dashboard.html')));
   app.get('/clients', (req, res) => res.sendFile(path.join(__dirname, 'views', 'clients.html')));
+  app.get('/settings', (req, res) => res.sendFile(path.join(__dirname, 'views', 'settings.html')));
 
   // API
   app.use('/api/products', require('./routes/products'));
   app.use('/api/clients', require('./routes/clients'));
   app.use('/api/tasks', require('./routes/tasks'));
+  app.use('/api/settings', require('./routes/settings'));
 
   app.get('/api/auth/me', (req, res) => {
     res.json({ username: req.user.username, role: req.user.role });

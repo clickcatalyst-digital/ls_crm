@@ -62,6 +62,7 @@ async function initDB() {
     title TEXT NOT NULL,
     due_date DATE NOT NULL,
     status TEXT NOT NULL DEFAULT 'open',
+    assigned_to TEXT,
     completed_at DATETIME,
     created_by TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP

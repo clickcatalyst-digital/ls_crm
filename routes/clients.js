@@ -39,7 +39,7 @@ router.get('/:id', async (req, res) => {
 
 // CREATE — finds-or-creates company, then contact, optional first note + next-touchpoint task
 router.post('/', async (req, res) => {
-  const { poc_name, company_name, designation, email, phone, status, product_id, website, industry, note, next_touchpoint, next_touchpoint_title } = req.body;
+  const { poc_name, company_name, designation, email, phone, status, product_id, website, industry, note, next_touchpoint, next_touchpoint_title, next_touchpoint_assignee } = req.body;
   if (!poc_name) return res.status(400).json({ error: 'poc_name is required' });
 
   try {
