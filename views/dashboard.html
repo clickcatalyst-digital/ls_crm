@@ -85,7 +85,7 @@
       background:var(--bg); border:1px solid var(--border); border-radius:var(--radius);
       min-height:74px; padding:6px; position:relative; transition:border-color 0.15s;
     }
-    .cal-cell.week { min-height:120px; }
+    .cal-cell.week { min-height:88px; }
     .cal-cell.muted { opacity:0.35; }
     .cal-cell.today { border-color:var(--primary); border-width:1.5px; }
     .cal-date { font-size:11px; font-weight:700; }
@@ -108,15 +108,15 @@
     /* ===== Task scope toggle ===== */
     .scope-toggle {
       display:inline-flex; background:var(--bg); border:1px solid var(--border);
-      border-radius:var(--radius); padding:2px; margin-bottom:14px; width:100%;
+      border-radius:var(--radius); padding:2px;
     }
     .scope-toggle button {
-      flex:1; background:none; border:none; font-family:var(--font);
-      font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;
-      color:var(--text-muted); padding:6px 0; border-radius:4px; cursor:pointer; transition:all 0.15s;
+      background:none; border:none; font-family:var(--font);
+      font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;
+      color:var(--text-muted); padding:4px 10px; border-radius:4px; cursor:pointer; transition:all 0.15s;
     }
     .scope-toggle button.active { background:var(--surface); color:var(--text); box-shadow:var(--shadow); }
-
+    
     /* ===== Avatar ===== */
     .avatar {
       width:24px; height:24px; border-radius:50%; flex-shrink:0;
@@ -186,11 +186,11 @@
     <!-- SIDEBAR: today's tasks -->
     <aside class="crm-sidebar">
       <div class="sidebar-title">
-        TASKS <span class="count-pill" id="taskCount">0</span>
-      </div>
-      <div class="scope-toggle" id="scopeToggle" style="display:none;">
-        <button id="scopeMine" class="active" onclick="setScope('mine')">My Tasks</button>
-        <button id="scopeAll" onclick="setScope('all')">All</button>
+        <span>TASKS <span class="count-pill" id="taskCount">0</span></span>
+        <div class="scope-toggle" id="scopeToggle" style="display:none;">
+          <button id="scopeMine" class="active" onclick="setScope('mine')">Mine</button>
+          <button id="scopeAll" onclick="setScope('all')">All</button>
+        </div>
       </div>
       <div id="taskList"><div class="empty-tasks">Loading…</div></div>
     </aside>
@@ -198,7 +198,7 @@
     <!-- MAIN -->
     <main class="crm-main">
       <div class="page-header">
-        <h1>Dashboard</h1>
+        <h1 id="welcomeHead">Dashboard</h1>
         <p>Pipeline overview and client metrics</p>
       </div>
 
@@ -212,6 +212,7 @@
       <div class="card">
         <div class="cal-head">
           <div class="cal-nav">
+            <button onclick="toggleCal()" id="calToggle" title="Collapse calendar">▾</button>
             <button onclick="calShift(-1)">‹</button>
             <span class="cal-period" id="calPeriod"></span>
             <button onclick="calShift(1)">›</button>
@@ -286,6 +287,10 @@
 
     async function initTaskScope() {
       currentUser = await fetch('/api/auth/me').then(r => r.json()).catch(() => null);
+      if (currentUser) {
+        const name = currentUser.full_name || currentUser.username;
+        document.getElementById('welcomeHead').textContent = `Welcome, ${name}`;
+      }
       const isApprover = currentUser && ['admin','manager'].includes(currentUser.role);
       if (isApprover) {
         document.getElementById('scopeToggle').style.display = 'flex';
@@ -322,7 +327,7 @@
                 </div>
                 ${avatar}
               </div>
-              <div class="task-title">${t.title}</div>
+              <div class="task-title">${esc(t.title)}</div>
               <div class="task-foot">
                 <span class="task-due" style="color:${overdue ? 'var(--danger)' : 'var(--text-muted)'}">
                   ${overdue ? 'Overdue · ' : ''}${formatDate(t.due_date)}
@@ -383,6 +388,13 @@
     }
 
     // ===== Calendar =====
+    let calOpen = true;
+    function toggleCal() {
+      calOpen = !calOpen;
+      document.getElementById('calBody').style.display = calOpen ? '' : 'none';
+      document.getElementById('calToggle').textContent = calOpen ? '▾' : '▸';
+    }
+
     let calView = 'week';
     let calAnchor = new Date(); // current reference date
 
