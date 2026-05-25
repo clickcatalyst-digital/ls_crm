@@ -4,6 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f0f0e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Dashboard | LS CRM</title>
   <link rel="stylesheet" href="/public/css/style.css">
   <style>
@@ -77,15 +80,23 @@
     .task-done-btn:hover { background: var(--success); color: #fff; border-color: var(--success); }
     .empty-tasks { color: var(--text-muted); font-size: 12px; text-align: left; padding: 16px 4px; }
     @media (max-width: 768px) {
-      .crm-shell { flex-direction: column; }
+      .crm-shell { flex-direction: column-reverse; }  /* dashboard first, tasks below */
       .crm-sidebar {
         width: auto; min-height: 0;
-        border-right: none; border-bottom: 1px solid var(--border);
+        border-right: none; border-top: 1px solid var(--border);
         padding: 16px 12px;
       }
       .crm-main { padding: 16px 12px; }
-      /* clear the bottom tab bar so last content isn't hidden behind it */
       body { padding-bottom: 72px; }
+
+      /* On mobile, collapse = hide the task list, show just the header as an accordion */
+      .crm-sidebar .sidebar-collapse-btn { display: none; }  /* hide desktop ‹‹ button */
+      .crm-sidebar .sidebar-title { cursor: pointer; }       /* tap title to toggle */
+      .crm-sidebar.collapsed { width: auto; padding: 16px 12px; }
+      .crm-sidebar.collapsed .sidebar-expanded { display: block; }   /* keep header visible */
+      .crm-sidebar.collapsed .sidebar-collapsed { display: none; }   /* no rail on mobile */
+      .crm-sidebar.collapsed #taskList { display: none; }            /* hide list when collapsed */
+      .crm-sidebar.collapsed .scope-toggle { display: none !important; }
     }
     /* ===== Calendar ===== */
     .cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
@@ -134,7 +145,32 @@
     .cal-month-cell .m-name { font-size:12px; font-weight:700; }
     .cal-month-cell .m-count { font-size:20px; font-weight:700; margin-top:6px; }
     .cal-month-cell .m-label { font-size:9px; text-transform:uppercase; letter-spacing:0.4px; color:var(--text-muted); }
-  
+    
+    /* ===== Mobile agenda (replaces grid calendar on phones) ===== */
+    .cal-agenda { display: none; }
+    .agenda-day { margin-bottom: 14px; }
+    .agenda-day-head {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+      color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
+    }
+    .agenda-day-head.is-today { color: var(--primary); }
+    .agenda-day-head .a-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
+    .agenda-task {
+      background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--primary);
+      border-radius: var(--radius); padding: 10px 12px; margin-bottom: 6px;
+    }
+    .agenda-task.overdue { border-left-color: var(--danger); }
+    .agenda-task .a-poc { font-weight: 700; font-size: 13px; }
+    .agenda-task .a-title { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .agenda-empty { color: var(--text-muted); font-size: 12px; padding: 16px 4px; }
+
+    @media (max-width: 768px) {
+      .cal-grid { display: none; }            /* hide desktop grid */
+      .cal-agenda { display: block; }         /* show agenda */
+      .cal-views { display: none; }           /* week/month/year toggle not needed in agenda */
+      .cal-period { min-width: auto; }
+    }
+
     /* ===== Task scope toggle ===== */
     .scope-toggle {
       display:inline-flex; background:var(--bg); border:1px solid var(--border);
@@ -218,10 +254,10 @@
     <aside class="crm-sidebar" id="crmSidebar">
       <!-- EXPANDED VIEW -->
       <div class="sidebar-expanded">
-        <div class="sidebar-title">
+        <div class="sidebar-title" onclick="if(window.innerWidth<=768)toggleSidebar()">
           <span>TASKS <span class="count-pill" id="taskCount">0</span></span>
           <div class="sidebar-title-actions">
-            <div class="scope-toggle" id="scopeToggle" style="display:none;">
+            <div class="scope-toggle" id="scopeToggle" style="display:none;" onclick="event.stopPropagation()"></div>
               <button id="scopeMine" class="active" onclick="setScope('mine')">Mine</button>
               <button id="scopeAll" onclick="setScope('all')">All</button>
             </div>
@@ -334,8 +370,10 @@
       const collapsed = sb.classList.toggle('collapsed');
       localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0');
     }
-    // restore on load
-    if (localStorage.getItem('sidebarCollapsed') === '1') {
+
+    // restore on load — default to collapsed unless user previously expanded
+    // restore: desktop defaults collapsed; mobile always starts expanded (tasks sit below dashboard anyway)
+    if (window.innerWidth > 768 && localStorage.getItem('sidebarCollapsed') !== '0') {
       document.getElementById('crmSidebar').classList.add('collapsed');
     }
 
@@ -486,9 +524,49 @@
       return m;
     }
 
+    async function renderAgenda(body, period) {
+      // Show next 14 days from today
+      const start = new Date(Date.now() + 5.5*3600*1000);
+      start.setHours(0,0,0,0);
+      const end = new Date(start); end.setDate(end.getDate() + 14);
+      const tasks = await fetchTasks(fmtISO(start), fmtISO(end));
+      const byDate = groupByDate(tasks);
+      period.textContent = 'Next 14 days';
+
+      const days = [];
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(start); d.setDate(start.getDate() + i);
+        const iso = fmtISO(d);
+        if (byDate[iso]) days.push({ d, iso, tasks: byDate[iso] });
+      }
+
+      if (!days.length) {
+        body.innerHTML = `<div class="cal-agenda"><div class="agenda-empty">No upcoming touchpoints in the next 14 days</div></div>`;
+        return;
+      }
+
+      body.innerHTML = `<div class="cal-agenda">${days.map(({d, iso, tasks}) => `
+        <div class="agenda-day">
+          <div class="agenda-day-head ${iso===todayISO?'is-today':''}">
+            ${iso===todayISO?'<span class="a-dot"></span>':''}
+            ${DOW[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}${iso===todayISO?' · Today':''}
+          </div>
+          ${tasks.map(t => `
+            <div class="agenda-task ${t.due_date<todayISO?'overdue':''}">
+              <div class="a-poc">${esc(t.poc_name) || 'General'}</div>
+              <div class="a-title">${esc(t.title)}</div>
+            </div>`).join('')}
+        </div>`).join('')}</div>`;
+    }
+
     async function renderCalendar() {
       const body = document.getElementById('calBody');
       const period = document.getElementById('calPeriod');
+
+      // Mobile: vertical agenda instead of grid
+      if (window.innerWidth <= 768) {
+        return renderAgenda(body, period);
+      }
 
       if (calView === 'week') {
         const start = startOfWeek(calAnchor);
@@ -546,6 +624,12 @@
     }
 
     function jumpToMonth(y, m) { calAnchor = new Date(y, m, 1); setCalView('month'); }
+
+    let _rzTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(_rzTimer);
+      _rzTimer = setTimeout(renderCalendar, 250);
+    });
 
     loadMetrics();
     initTaskScope();
