@@ -68,8 +68,8 @@ router.post('/', async (req, res) => {
         [contactId, note.trim(), req.user.username, nowIST()]);
     }
     if (next_touchpoint) {
-      await execute('INSERT INTO crm_tasks (contact_id, title, due_date, created_by, created_at) VALUES (?, ?, ?, ?, ?)',
-        [contactId, next_touchpoint_title || 'Follow up', next_touchpoint, req.user.username, nowIST()]);
+      await execute('INSERT INTO crm_tasks (contact_id, title, due_date, assigned_to, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [contactId, next_touchpoint_title || 'Follow up', next_touchpoint, next_touchpoint_assignee || req.user.username, req.user.username, nowIST()]);
     }
 
     res.json({ success: true, id: contactId, message: `${poc_name} added` });
