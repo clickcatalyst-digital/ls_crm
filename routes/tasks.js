@@ -1,7 +1,7 @@
 // routes/tasks.js
 const express = require('express');
 const router = express.Router();
-const { queryAll, execute, nowIST } = require('../db/schema');
+const { queryAll, queryOne, execute, nowIST } = require('../db/schema');
 
 // Today's + overdue open tasks, with contact/company context
 router.get('/today', async (req, res) => {
@@ -117,6 +117,42 @@ router.get('/stats', async (req, res) => {
     ORDER BY bucket
   `);
   res.json(rows);
+});
+
+// Single task detail — with contact, company, and last note
+router.get('/:id', async (req, res) => {
+  const task = await queryOne(`
+    SELECT t.*,
+           c.poc_name, c.designation, c.email, c.phone,
+           c.status AS contact_status, c.id AS crm_contact_id,
+           co.name AS company_name
+    FROM crm_tasks t
+    LEFT JOIN crm_contacts c ON t.contact_id = c.id
+    LEFT JOIN crm_companies co ON c.company_id = co.id
+    WHERE t.id = ?
+  `, [req.params.id]);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const note = task.contact_id ? await queryOne(
+    `SELECT body, created_by, created_at FROM crm_notes
+     WHERE contact_id = ? ORDER BY created_at DESC LIMIT 1`,
+    [task.contact_id]
+  ) : null;
+
+  res.json({ ...task, last_note: note || null });
+});
+
+// Update task title and/or due_date
+router.patch('/:id', async (req, res) => {
+  const { title, due_date } = req.body;
+  const sets = [], params = [];
+  if (title)    { sets.push('title = ?');    params.push(title.trim()); }
+  if (due_date) { sets.push('due_date = ?'); params.push(due_date); }
+  if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
+  params.push(req.params.id);
+  const r = await execute(`UPDATE crm_tasks SET ${sets.join(', ')} WHERE id = ?`, params);
+  if (!r.changes) return res.status(404).json({ error: 'Task not found' });
+  res.json({ success: true });
 });
 
 module.exports = router;

@@ -212,6 +212,147 @@
     .assign-pop button:hover { background:var(--bg); }
     .assign-pop .pop-divider { height:1px; background:var(--border); margin:4px 0; }
     .assign-pop .unassign-opt { color:var(--text-muted); }
+
+    /* ===== Task Detail Overlay ===== */
+    .task-overlay {
+    position: fixed; inset: 0; z-index: 900;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(2px);
+    display: flex; align-items: flex-end; justify-content: flex-end;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .task-overlay.open { opacity: 1; pointer-events: all; }
+
+    .task-overlay-panel {
+    background: var(--surface); border-left: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+    width: 380px; max-width: 100vw;
+    height: calc(100vh - 52px); /* below nav */
+    display: flex; flex-direction: column;
+    transform: translateX(30px); transition: transform 0.2s;
+    overflow: hidden;
+    }
+    .task-overlay.open .task-overlay-panel { transform: translateX(0); }
+
+    @media (max-width: 768px) {
+    .task-overlay { align-items: flex-end; justify-content: stretch; }
+    .task-overlay-panel {
+        width: 100%; height: 88vh; border-left: none;
+        border-radius: 16px 16px 0 0;
+        transform: translateY(40px);
+    }
+    .task-overlay.open .task-overlay-panel { transform: translateY(0); }
+    }
+
+    .ov-header {
+    padding: 16px 16px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .ov-header-row {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+    }
+    .ov-status-badge {
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 3px 8px; border-radius: 10px;
+    }
+    .ov-status-badge.open   { background: color-mix(in srgb, var(--primary) 15%, transparent); color: var(--primary); }
+    .ov-status-badge.done   { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+    .ov-close {
+    background: none; border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text-muted); width: 26px; height: 26px; cursor: pointer;
+    font-size: 14px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; font-family: var(--font);
+    }
+    .ov-close:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+    .ov-title {
+    font-size: 15px; font-weight: 700; line-height: 1.35;
+    outline: none; border-radius: 4px; padding: 2px 4px; margin: 0 -4px;
+    transition: background 0.15s; cursor: text;
+    }
+    .ov-title:focus { background: var(--bg); }
+    .ov-title[contenteditable="false"] { cursor: default; }
+
+    .ov-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+    .ov-meta { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .ov-meta-row { display: flex; align-items: center; gap: 10px; }
+    .ov-meta-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+    color: var(--text-muted); width: 70px; flex-shrink: 0;
+    }
+    .ov-date-input {
+    font-family: var(--font); font-size: 12px; font-weight: 600;
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); padding: 4px 8px; cursor: pointer;
+    }
+    .ov-date-input:focus { outline: none; border-color: var(--primary); }
+    .ov-assigned-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 20px; padding: 3px 10px 3px 5px;
+    font-size: 12px; font-weight: 600;
+    }
+
+    .ov-section { margin-bottom: 18px; }
+    .ov-section-label {
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-muted); margin-bottom: 8px;
+    }
+    .ov-contact-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px 14px;
+    }
+    .ov-contact-name { font-size: 14px; font-weight: 700; }
+    .ov-contact-desig { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+    .ov-contact-company {
+    font-size: 11px; font-weight: 600; margin-top: 4px;
+    color: var(--primary);
+    }
+    .ov-contact-links { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .ov-contact-links a {
+    font-size: 11px; color: var(--text-muted); text-decoration: none;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 3px 8px; transition: all 0.12s;
+    }
+    .ov-contact-links a:hover { color: var(--text); border-color: var(--text-muted); }
+    .ov-crm-status {
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+    margin-top: 8px; color: var(--text-muted);
+    }
+
+    .ov-note-card {
+    background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--warning);
+    border-radius: var(--radius); padding: 11px 13px;
+    }
+    .ov-note-body { font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+    .ov-note-meta {
+    font-size: 10px; color: var(--text-muted); margin-top: 7px; font-weight: 600;
+    }
+    .ov-no-note { font-size: 12px; color: var(--text-muted); font-style: italic; }
+
+    .ov-footer {
+    padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0;
+    display: flex; gap: 8px;
+    }
+    .ov-btn-done {
+    flex: 1; background: var(--success); color: #fff; border: none;
+    border-radius: var(--radius); padding: 9px; font-family: var(--font);
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+    cursor: pointer; transition: opacity 0.15s;
+    }
+    .ov-btn-done:hover { opacity: 0.85; }
+    .ov-btn-done.reopen { background: var(--text-muted); }
+    .ov-btn-save {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius); padding: 9px 16px; font-family: var(--font);
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+    cursor: pointer; transition: all 0.15s;
+    }
+    .ov-btn-save:hover { border-color: var(--primary); color: var(--primary); }
+    .ov-view-link {
+    font-size: 11px; color: var(--text-muted); text-decoration: none;
+    display: flex; align-items: center; justify-content: center; padding: 9px 10px;
+    border: 1px solid var(--border); border-radius: var(--radius); transition: all 0.15s;
+    }
+    .ov-view-link:hover { border-color: var(--text-muted); color: var(--text); }
   </style>
 </head>
 <body>
@@ -313,6 +454,52 @@
     </main>
   </div>
 
+    <!-- Task Detail Overlay -->
+    <div id="taskOverlay" class="task-overlay" onclick="if(event.target===this)closeTaskOverlay()">
+    <div class="task-overlay-panel">
+        <div class="ov-header">
+        <div class="ov-header-row">
+            <span class="ov-status-badge" id="ovStatusBadge">Open</span>
+            <button class="ov-close" onclick="closeTaskOverlay()">✕</button>
+        </div>
+        <div class="ov-title" id="ovTitle" contenteditable="true" spellcheck="false"></div>
+        </div>
+        <div class="ov-body">
+        <div class="ov-meta">
+            <div class="ov-meta-row">
+            <span class="ov-meta-label">Due date</span>
+            <input type="date" id="ovDueDate" class="ov-date-input">
+            </div>
+            <div class="ov-meta-row">
+            <span class="ov-meta-label">Assigned</span>
+            <span id="ovAssigned"></span>
+            </div>
+        </div>
+
+        <div class="ov-section" id="ovContactSection">
+            <div class="ov-section-label">Contact</div>
+            <div class="ov-contact-card">
+            <div class="ov-contact-name" id="ovContactName"></div>
+            <div class="ov-contact-desig" id="ovContactDesig"></div>
+            <div class="ov-contact-company" id="ovContactCompany"></div>
+            <div class="ov-contact-links" id="ovContactLinks"></div>
+            <div class="ov-crm-status" id="ovCrmStatus"></div>
+            </div>
+        </div>
+
+        <div class="ov-section" id="ovNoteSection">
+            <div class="ov-section-label">Last Note</div>
+            <div id="ovNoteContent"></div>
+        </div>
+        </div>
+        <div class="ov-footer">
+        <button id="ovDoneBtn" class="ov-btn-done" onclick="overlayToggleDone()">Mark Done</button>
+        <button class="ov-btn-save" onclick="overlayUpdateTask()">Save</button>
+        <a id="ovViewLink" class="ov-view-link" href="#" title="Open contact">↗</a>
+        </div>
+    </div>
+    </div>
+
   <script src="/public/js/app.js"></script>
   <script>
     const STAGES = ['new', 'contacted', 'qualified', 'customer', 'lost'];
@@ -398,40 +585,51 @@
       loadTasks();
     }
 
-    async function loadTasks() {
-      try {
-        const tasks = await api(`/api/tasks/today?scope=${taskScope}`);
-        document.getElementById('taskCount').textContent = tasks.length;
-        document.getElementById('collapsedCount').textContent = tasks.length;
-        const hasToday = tasks.some(t => t.due_date === todayISO);
-        document.getElementById('collapsedDot').style.display = hasToday ? 'block' : 'none';
-        const list = document.getElementById('taskList');
-        if (!tasks.length) { list.innerHTML = '<div class="empty-tasks">Nothing here 🎉</div>'; return; }
-        const today = todayISO;
-        const showAvatars = taskScope === 'all';
+    // Safe date formatter for YYYY-MM-DD strings (avoids UTC timezone shift)
+    function fmtTaskDate(iso) {
+        if (!iso || typeof iso !== 'string') return '—';
+        const parts = iso.substring(0, 10).split('-');
+        if (parts.length < 3) return iso;
+        const [y, m, d] = parts.map(Number);
+        if (!y || !m || !d) return iso;
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return `${d} ${months[m - 1]} ${y}`;
+    }
 
-        list.innerHTML = tasks.map(t => {
-          const overdue = t.due_date < today;
-          const avatar = showAvatars ? avatarHTML(t) : '';
-          return `
-            <div class="task-item ${overdue ? 'overdue' : ''}">
-              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-                <div style="min-width:0;">
-                  <div class="task-poc">${esc(t.poc_name) || 'General'}</div>
-                  ${t.company_name ? `<div class="task-company">${esc(t.company_name)}</div>` : ''}
+    async function loadTasks() {
+        try {
+            const tasks = await api(`/api/tasks/today?scope=${taskScope}`);
+            document.getElementById('taskCount').textContent = tasks.length;
+            document.getElementById('collapsedCount').textContent = tasks.length;
+            const hasToday = tasks.some(t => t.due_date === todayISO);
+            document.getElementById('collapsedDot').style.display = hasToday ? 'block' : 'none';
+            const list = document.getElementById('taskList');
+            if (!tasks.length) { list.innerHTML = '<div class="empty-tasks">Nothing here 🎉</div>'; return; }
+            const today = todayISO;
+            const showAvatars = taskScope === 'all';
+
+            list.innerHTML = tasks.map(t => {
+            const overdue = t.due_date < today;
+            const avatar = showAvatars ? avatarHTML(t) : '';
+            return `
+                <div class="task-item ${overdue ? 'overdue' : ''}" onclick="openTaskOverlay(${t.id})" style="cursor:pointer;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                    <div style="min-width:0;">
+                    <div class="task-poc">${esc(t.poc_name) || 'General'}</div>
+                    ${t.company_name ? `<div class="task-company">${esc(t.company_name)}</div>` : ''}
+                    </div>
+                    <span onclick="event.stopPropagation()">${avatar}</span>
                 </div>
-                ${avatar}
-              </div>
-              <div class="task-title">${esc(t.title)}</div>
-              <div class="task-foot">
-                <span class="task-due" style="color:${overdue ? 'var(--danger)' : 'var(--text-muted)'}">
-                  ${overdue ? 'Overdue · ' : ''}${formatDate(t.due_date)}
-                </span>
-                <button class="task-done-btn" onclick="completeTask(${t.id})">Done</button>
-              </div>
-            </div>`;
-        }).join('');
-      } catch (e) {}
+                <div class="task-title">${esc(t.title)}</div>
+                <div class="task-foot">
+                    <span class="task-due" style="color:${overdue ? 'var(--danger)' : 'var(--text-muted)'}">
+                    ${overdue ? 'Overdue · ' : ''}${fmtTaskDate(t.due_date)}
+                    </span>
+                    <button class="task-done-btn" onclick="event.stopPropagation(); completeTask(${t.id})">Done</button>
+                </div>
+                </div>`;
+            }).join('');
+        } catch (e) {}
     }
 
     function avatarHTML(t) {
@@ -636,16 +834,19 @@
     }
 
     function cell(d, tasks, isWeek, monthCtx) {
-      const iso = fmtISO(d);
-      const muted = (monthCtx !== undefined && d.getMonth() !== monthCtx) ? 'muted' : '';
-      const today = iso === todayISO ? 'today' : '';
-      const shown = tasks.slice(0, isWeek ? 5 : 3);
-      const extra = tasks.length - shown.length;
-      return `<div class="cal-cell ${isWeek?'week':''} ${muted} ${today}">
-        <div class="cal-date">${d.getDate()}</div>
-        ${shown.map(t => `<div class="cal-task ${t.due_date<todayISO?'overdue':''}" title="${esc(t.poc_name)} — ${esc(t.title)}">${esc(t.poc_name) || esc(t.title)}</div>`).join('')}
-        ${extra>0?`<div class="cal-more">+${extra} more</div>`:''}
-      </div>`;
+        const iso = fmtISO(d);
+        const muted = (monthCtx !== undefined && d.getMonth() !== monthCtx) ? 'muted' : '';
+        const today = iso === todayISO ? 'today' : '';
+        const shown = tasks.slice(0, isWeek ? 5 : 3);
+        const extra = tasks.length - shown.length;
+        return `<div class="cal-cell ${isWeek?'week':''} ${muted} ${today}">
+            <div class="cal-date">${d.getDate()}</div>
+            ${shown.map(t => `<div class="cal-task ${t.due_date<todayISO?'overdue':''}"
+            style="cursor:pointer;"
+            onclick="openTaskOverlay(${t.id})"
+            title="${esc(t.poc_name)} — ${esc(t.title)}">${esc(t.poc_name) || esc(t.title)}</div>`).join('')}
+            ${extra>0?`<div class="cal-more">+${extra} more</div>`:''}
+        </div>`;
     }
 
     function jumpToMonth(y, m) { calAnchor = new Date(y, m, 1); setCalView('month'); }
@@ -655,6 +856,117 @@
       clearTimeout(_rzTimer);
       _rzTimer = setTimeout(renderCalendar, 250);
     });
+
+    // ===== Task Detail Overlay =====
+    let _ovTask = null;
+
+    function _ovAvatarChip(username) {
+    if (!username) return '<span style="color:var(--text-muted);font-size:12px;">Unassigned</span>';
+    const u = assignableUsers.find(x => x.username === username) || { username };
+    return `<span class="ov-assigned-chip">
+        <span class="avatar" style="background:${colorFor(username)};width:18px;height:18px;font-size:8px;cursor:default;">${initialsFor(u)}</span>
+        ${esc(capitalize(username))}
+    </span>`;
+    }
+
+    async function openTaskOverlay(taskId) {
+    const overlay = document.getElementById('taskOverlay');
+    overlay.classList.add('open');
+    document.getElementById('ovTitle').textContent = 'Loading…';
+    document.getElementById('ovContactSection').style.display = 'none';
+    document.getElementById('ovNoteSection').style.display = 'none';
+
+    try {
+        const t = await api(`/api/tasks/${taskId}`);
+        _ovTask = t;
+
+        // Header
+        document.getElementById('ovStatusBadge').textContent = t.status === 'done' ? 'Done' : 'Open';
+        document.getElementById('ovStatusBadge').className = `ov-status-badge ${t.status}`;
+        document.getElementById('ovTitle').textContent = t.title;
+        document.getElementById('ovTitle').contentEditable = t.status === 'done' ? 'false' : 'true';
+
+        // Meta
+        document.getElementById('ovDueDate').value = t.due_date || '';
+        document.getElementById('ovDueDate').disabled = t.status === 'done';
+        document.getElementById('ovAssigned').innerHTML = _ovAvatarChip(t.assigned_to);
+
+        // Done button
+        const doneBtn = document.getElementById('ovDoneBtn');
+        if (t.status === 'done') {
+        doneBtn.textContent = 'Reopen';
+        doneBtn.className = 'ov-btn-done reopen';
+        } else {
+        doneBtn.textContent = 'Mark Done';
+        doneBtn.className = 'ov-btn-done';
+        }
+
+        // View contact link
+        const viewLink = document.getElementById('ovViewLink');
+        if (t.crm_contact_id) {
+        viewLink.href = `/clients/${t.crm_contact_id}`;
+        viewLink.style.display = '';
+        } else {
+        viewLink.style.display = 'none';
+        }
+
+        // Contact section
+        if (t.poc_name) {
+        document.getElementById('ovContactSection').style.display = '';
+        document.getElementById('ovContactName').textContent = t.poc_name;
+        document.getElementById('ovContactDesig').textContent = t.designation || '';
+        document.getElementById('ovContactCompany').textContent = t.company_name || '';
+        const links = [];
+        if (t.email) links.push(`<a href="mailto:${esc(t.email)}">✉ ${esc(t.email)}</a>`);
+        if (t.phone) links.push(`<a href="tel:${esc(t.phone)}">✆ ${esc(t.phone)}</a>`);
+        document.getElementById('ovContactLinks').innerHTML = links.join('');
+        const statusMap = { new:'New lead', contacted:'Contacted', qualified:'Qualified', customer:'Customer', lost:'Lost' };
+        document.getElementById('ovCrmStatus').textContent = statusMap[t.contact_status] || t.contact_status || '';
+        }
+
+        // Last note
+        document.getElementById('ovNoteSection').style.display = '';
+        if (t.last_note) {
+        document.getElementById('ovNoteContent').innerHTML = `
+            <div class="ov-note-card">
+            <div class="ov-note-body">${esc(t.last_note.body)}</div>
+            <div class="ov-note-meta">${t.last_note.created_by ? esc(capitalize(t.last_note.created_by)) + ' · ' : ''}${fmtTaskDate((t.last_note.created_at || '').substring(0,10))}</div>
+            </div>`;
+        } else {
+        document.getElementById('ovNoteContent').innerHTML = `<div class="ov-no-note">No notes on this contact yet.</div>`;
+        }
+
+    } catch(e) {
+        document.getElementById('ovTitle').textContent = 'Failed to load task';
+    }
+    }
+
+    function closeTaskOverlay() {
+    document.getElementById('taskOverlay').classList.remove('open');
+    _ovTask = null;
+    }
+
+    async function overlayToggleDone() {
+    if (!_ovTask) return;
+    const action = _ovTask.status === 'done' ? 'reopen' : 'done';
+    await api(`/api/tasks/${_ovTask.id}/${action}`, { method: 'POST' });
+    showToast(action === 'done' ? 'Task completed' : 'Task reopened');
+    closeTaskOverlay();
+    loadTasks();
+    renderCalendar();
+    }
+
+    async function overlayUpdateTask() {
+    if (!_ovTask) return;
+    const title = document.getElementById('ovTitle').textContent.trim();
+    const due_date = document.getElementById('ovDueDate').value;
+    if (!title || !due_date) return showToast('Title and date required');
+    await api(`/api/tasks/${_ovTask.id}`, { method: 'PATCH', body: { title, due_date } });
+    showToast('Task updated');
+    closeTaskOverlay();
+    loadTasks();
+    renderCalendar();
+    }
 
     loadMetrics();
     initTaskScope();
