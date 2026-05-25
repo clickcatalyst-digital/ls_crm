@@ -478,8 +478,33 @@
     }
 
     async function completeTask(id) {
-      try { await api(`/api/tasks/${id}/done`, { method: 'POST' }); showToast('Task completed'); loadTasks(); }
-      catch (e) {}
+      try {
+        await api(`/api/tasks/${id}/done`, { method: 'POST' });
+        showUndoToast('Task completed', async () => {
+          await api(`/api/tasks/${id}/reopen`, { method: 'POST' });
+          loadTasks();
+        });
+        loadTasks();
+      } catch (e) {}
+    }
+
+    // Toast with an inline Undo action (session-only; gone on refresh)
+    function showUndoToast(message, onUndo) {
+      let toast = document.getElementById('toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.className = 'toast';
+        document.body.appendChild(toast);
+      }
+      toast.innerHTML = `${message} <span style="margin-left:12px; text-decoration:underline; cursor:pointer; font-weight:700;">Undo</span>`;
+      toast.style.background = '#1a1a18';
+      toast.classList.add('show');
+      const undoEl = toast.querySelector('span');
+      const hide = () => toast.classList.remove('show');
+      undoEl.onclick = async () => { hide(); await onUndo(); showToast('Reopened'); };
+      clearTimeout(toast._t);
+      toast._t = setTimeout(hide, 5000);
     }
 
     // ===== Calendar =====

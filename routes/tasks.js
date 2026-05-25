@@ -72,4 +72,51 @@ router.get('/assignable', async (req, res) => {
   res.json(await queryAll("SELECT username, role FROM users WHERE role != 'admin' ORDER BY username"));
 });
 
+// Reopen a completed task (undo)
+router.post('/:id/reopen', async (req, res) => {
+  const r = await execute("UPDATE crm_tasks SET status = 'open', completed_at = NULL WHERE id = ?", [req.params.id]);
+  if (!r.changes) return res.status(404).json({ error: 'Task not found' });
+  res.json({ success: true, message: 'Task reopened' });
+});
+
+// All tasks (for the Tasks page) — filterable by status + assignee, scope-aware for staff
+router.get('/all', async (req, res) => {
+  const { status, assignee } = req.query;
+  const isApprover = ['admin', 'manager'].includes(req.user?.role);
+
+  let sql = `
+    SELECT t.*, c.poc_name, co.name AS company_name
+    FROM crm_tasks t
+    LEFT JOIN crm_contacts c ON t.contact_id = c.id
+    LEFT JOIN crm_companies co ON c.company_id = co.id
+    WHERE 1=1`;
+  const params = [];
+
+  // Staff only ever see their own tasks
+  if (!isApprover) { sql += ' AND t.assigned_to = ?'; params.push(req.user.username); }
+  else if (assignee) { sql += ' AND t.assigned_to = ?'; params.push(assignee); }
+
+  if (status && status !== 'all') { sql += ' AND t.status = ?'; params.push(status); }
+
+  sql += ' ORDER BY (t.status = "done"), t.due_date DESC LIMIT 500';
+  res.json(await queryAll(sql, params));
+});
+
+// Completion stats — per assignee, grouped by week or month (approvers only)
+router.get('/stats', async (req, res) => {
+  if (!['admin', 'manager'].includes(req.user?.role)) return res.status(403).json({ error: 'Not authorized' });
+  const period = req.query.period === 'month' ? 'month' : 'week';
+  const fmt = period === 'month' ? '%Y-%m' : '%Y-W%W';
+  const rows = await queryAll(`
+    SELECT assigned_to,
+           strftime('${fmt}', completed_at) AS bucket,
+           COUNT(*) AS n
+    FROM crm_tasks
+    WHERE status = 'done' AND completed_at IS NOT NULL
+    GROUP BY assigned_to, bucket
+    ORDER BY bucket
+  `);
+  res.json(rows);
+});
+
 module.exports = router;
