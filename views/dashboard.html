@@ -14,10 +14,15 @@
       border-right: 1px solid var(--border);
       padding: 24px 16px; min-height: calc(100vh - 52px);
     }
-    .crm-sidebar.collapsed { width: 60px; padding: 24px 8px; }
-    .crm-sidebar.collapsed .sidebar-title span,
-    .crm-sidebar.collapsed .scope-toggle,
-    .crm-sidebar.collapsed #taskList { display: none; }
+    .crm-sidebar.collapsed { width: 56px; padding: 24px 8px; }
+
+    /* show expanded by default, hide collapsed */
+    .sidebar-collapsed { display: none; }
+    .crm-sidebar.collapsed .sidebar-expanded { display: none; }
+    .crm-sidebar.collapsed .sidebar-collapsed {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+
     .sidebar-collapse-btn {
       background: none; border: 1px solid var(--border); border-radius: var(--radius);
       color: var(--text-muted); cursor: pointer; font-family: var(--font);
@@ -25,24 +30,19 @@
       display: flex; align-items: center; justify-content: center; transition: all 0.15s;
     }
     .sidebar-collapse-btn:hover { background: var(--text); color: #fff; border-color: var(--text); }
-    .collapsed-summary { display: none; flex-direction: column; align-items: center; gap: 8px; margin-top: 8px; }
-    .crm-sidebar.collapsed .collapsed-summary { display: flex; }
-    .collapsed-summary .c-count {
+    .c-count {
       background: var(--primary); color: #fff; font-size: 13px; font-weight: 700;
-      width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
     }
-    .collapsed-summary .c-today-dot {
-      width: 8px; height: 8px; border-radius: 50%; background: var(--danger);
-    }
-    .collapsed-summary .c-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
-    /* Collapse only makes sense on desktop — sidebar already stacks on mobile */
+    .c-today-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+    .c-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+
+    /* Desktop-only collapse — mobile sidebar always stacks fully */
     @media (max-width: 768px) {
-      .sidebar-collapse-btn { display: none; }
       .crm-sidebar.collapsed { width: auto; padding: 16px 12px; }
-      .crm-sidebar.collapsed .sidebar-title span,
-      .crm-sidebar.collapsed .scope-toggle,
-      .crm-sidebar.collapsed #taskList { display: ''; }
-      .crm-sidebar.collapsed .collapsed-summary { display: none; }
+      .crm-sidebar.collapsed .sidebar-expanded { display: block; }
+      .crm-sidebar.collapsed .sidebar-collapsed { display: none; }
     }
     .crm-main { flex: 1; min-width: 0; padding: 24px 16px; }
     .sidebar-title {
@@ -75,7 +75,7 @@
       transition: all 0.15s;
     }
     .task-done-btn:hover { background: var(--success); color: #fff; border-color: var(--success); }
-    .empty-tasks { color: var(--text-muted); font-size: 12px; text-align: center; padding: 24px 8px; }
+    .empty-tasks { color: var(--text-muted); font-size: 12px; text-align: left; padding: 16px 4px; }
     @media (max-width: 768px) {
       .crm-shell { flex-direction: column; }
       .crm-sidebar {
@@ -215,21 +215,25 @@
   <div class="crm-shell">
     <!-- SIDEBAR: today's tasks -->
     <aside class="crm-sidebar" id="crmSidebar">
-      <div class="sidebar-title">
-        <span>TASKS <span class="count-pill" id="taskCount">0</span></span>
-        <button class="sidebar-collapse-btn" onclick="toggleSidebar()" id="sidebarCollapseBtn" title="Collapse">‹‹</button>
+      <!-- EXPANDED VIEW -->
+      <div class="sidebar-expanded">
+        <div class="sidebar-title">
+          <span>TASKS <span class="count-pill" id="taskCount">0</span></span>
+          <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Collapse">‹‹</button>
+        </div>
+        <div class="scope-toggle" id="scopeToggle" style="display:none;">
+          <button id="scopeMine" class="active" onclick="setScope('mine')">Mine</button>
+          <button id="scopeAll" onclick="setScope('all')">All</button>
+        </div>
+        <div id="taskList"><div class="empty-tasks">Loading…</div></div>
       </div>
-      <div class="scope-toggle" id="scopeToggle" style="display:none;">
-        <button id="scopeMine" class="active" onclick="setScope('mine')">Mine</button>
-        <button id="scopeAll" onclick="setScope('all')">All</button>
-      </div>
-      <div class="collapsed-summary" id="collapsedSummary">
+      <!-- COLLAPSED VIEW -->
+      <div class="sidebar-collapsed">
         <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Expand">››</button>
         <div class="c-count" id="collapsedCount">0</div>
         <div class="c-today-dot" id="collapsedDot" style="display:none;"></div>
         <div class="c-label">Tasks</div>
       </div>
-      <div id="taskList"><div class="empty-tasks">Loading…</div></div>
     </aside>
 
     <!-- MAIN -->
