@@ -353,6 +353,27 @@
     border: 1px solid var(--border); border-radius: var(--radius); transition: all 0.15s;
     }
     .ov-view-link:hover { border-color: var(--text-muted); color: var(--text); }
+
+    .ov-call-textarea {
+    width: 100%; box-sizing: border-box; font-family: var(--font); font-size: 12px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); padding: 8px 10px; resize: vertical; min-height: 72px;
+    }
+    .ov-call-textarea:focus { outline: none; border-color: var(--primary); }
+    .ov-touch-row { display: flex; gap: 6px; margin-top: 6px; }
+    .ov-touch-row .ov-date-input { flex: 1; min-width: 0; }
+    .ov-touch-row .ov-date-input:last-child { flex: 2; }
+    .ov-check-label {
+    display: flex; align-items: center; gap: 6px; margin-top: 8px;
+    font-size: 11px; color: var(--text-muted); cursor: pointer; user-select: none;
+    }
+    .ov-btn-log {
+    background: var(--primary); color: #fff; border: none;
+    border-radius: var(--radius); padding: 9px 14px; font-family: var(--font);
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+    cursor: pointer; transition: opacity 0.15s; white-space: nowrap; flex-shrink: 0;
+    }
+    .ov-btn-log:hover { opacity: 0.85; }
   </style>
 </head>
 <body>
@@ -491,8 +512,20 @@
             <div class="ov-section-label">Last Note</div>
             <div id="ovNoteContent"></div>
         </div>
+        <div class="ov-section" id="ovLogSection" style="display:none;">
+        <div class="ov-section-label">Log This Call</div>
+        <textarea id="ovCallNote" class="ov-call-textarea" placeholder="Call summary or update…"></textarea>
+        <div class="ov-touch-row">
+            <input type="date" id="ovNextDate" class="ov-date-input">
+            <input type="text" id="ovNextTitle" class="ov-date-input" placeholder="e.g. Follow-up call">
+        </div>
+        <label class="ov-check-label">
+            <input type="checkbox" id="ovMarkDone" checked> Mark current task done after logging
+        </label>
+        </div>
         </div>
         <div class="ov-footer">
+        <button id="ovLogBtn" class="ov-btn-log" onclick="logCall()" style="display:none;">Log Call</button>
         <button id="ovDoneBtn" class="ov-btn-done" onclick="overlayToggleDone()">Mark Done</button>
         <span id="overlaySaveArea"><button class="ov-btn-save" onclick="overlayUpdateTask()">Save</button></span>
         <a id="ovViewLink" class="ov-view-link" href="#" title="Open contact">↗</a>
@@ -910,7 +943,7 @@
         // View contact link
         const viewLink = document.getElementById('ovViewLink');
         if (t.crm_contact_id) {
-        viewLink.href = `/clients/${t.crm_contact_id}`;
+        viewLink.href = `/clients?open=${t.crm_contact_id}`;
         viewLink.style.display = '';
         } else {
         viewLink.style.display = 'none';
@@ -942,6 +975,21 @@
         document.getElementById('ovNoteContent').innerHTML = `<div class="ov-no-note">No notes on this contact yet.</div>`;
         }
 
+        // Log call section — only when task is open and linked to a contact
+        const logSection = document.getElementById('ovLogSection');
+        const logBtn = document.getElementById('ovLogBtn');
+        if (t.contact_id && t.status === 'open') {
+        logSection.style.display = '';
+        logBtn.style.display = '';
+        document.getElementById('ovCallNote').value = '';
+        document.getElementById('ovNextDate').value = '';
+        document.getElementById('ovNextTitle').value = '';
+        document.getElementById('ovMarkDone').checked = true;
+        } else {
+        logSection.style.display = 'none';
+        logBtn.style.display = 'none';
+        }
+
     } catch(e) {
         document.getElementById('ovTitle').textContent = 'Failed to load task';
     }
@@ -951,6 +999,36 @@
     document.getElementById('taskOverlay').classList.remove('open');
     _ovTask = null;
     }
+
+    async function logCall() {
+        if (!_ovTask?.contact_id) return;
+        const note = document.getElementById('ovCallNote').value.trim();
+        const nextDate = document.getElementById('ovNextDate').value;
+        const nextTitle = document.getElementById('ovNextTitle').value.trim();
+        const markDone = document.getElementById('ovMarkDone').checked;
+
+        if (!note && !nextDate) return showToast('Add a note or schedule next touchpoint', 'error');
+
+        try {
+            if (note) {
+            await api(`/api/clients/${_ovTask.contact_id}/notes`, { method: 'POST', body: { body: note } });
+            }
+            if (nextDate) {
+            await api('/api/tasks', { method: 'POST', body: {
+                contact_id: _ovTask.contact_id,
+                title: nextTitle || 'Follow up',
+                due_date: nextDate
+            }});
+            }
+            if (markDone) {
+            await api(`/api/tasks/${_ovTask.id}/done`, { method: 'POST' });
+            }
+            showToast(markDone ? 'Logged & task completed' : 'Call logged');
+            closeTaskOverlay();
+            loadTasks();
+            renderCalendar();
+        } catch(e) {}
+        }
 
     async function overlayToggleDone() {
         if (!_ovTask) return;
