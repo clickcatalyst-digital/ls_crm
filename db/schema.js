@@ -68,13 +68,66 @@ async function initDB() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
+  await db.execute(`CREATE TABLE IF NOT EXISTS crm_purchase_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    po_number TEXT NOT NULL UNIQUE,
+    po_source TEXT NOT NULL DEFAULT 'manual',
+    company_id INTEGER NOT NULL REFERENCES crm_companies(id) ON DELETE RESTRICT,
+    contact_id INTEGER REFERENCES crm_contacts(id) ON DELETE SET NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    order_date DATE,
+    expected_dispatch_date DATE,
+    dispatch_date DATE,
+    notes TEXT,
+    created_by TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await db.execute(`CREATE TABLE IF NOT EXISTS crm_po_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    po_id INTEGER NOT NULL REFERENCES crm_purchase_orders(id) ON DELETE CASCADE,
+    item_code TEXT NOT NULL,
+    quantity_ordered INTEGER NOT NULL DEFAULT 1,
+    unit_price REAL,
+    notes TEXT
+    )`);
+
+    // Migrations — safe to re-run, errors mean column already exists
+    try {
+    await db.execute(`ALTER TABLE outwards ADD COLUMN po_id INTEGER REFERENCES crm_purchase_orders(id) ON DELETE SET NULL`);
+    } catch (e) {}
+    try {
+    await db.execute(`ALTER TABLE outwards ADD COLUMN company_id INTEGER REFERENCES crm_companies(id) ON DELETE SET NULL`);
+    } catch (e) {}
+
+    await db.execute(`CREATE INDEX IF NOT EXISTS idx_po_company ON crm_purchase_orders(company_id)`);
+    await db.execute(`CREATE INDEX IF NOT EXISTS idx_po_status ON crm_purchase_orders(status)`);
+    await db.execute(`CREATE INDEX IF NOT EXISTS idx_po_items_po ON crm_po_items(po_id)`);
+    await db.execute(`CREATE INDEX IF NOT EXISTS idx_outwards_po ON outwards(po_id)`);
+    await db.execute(`CREATE INDEX IF NOT EXISTS idx_outwards_company ON outwards(company_id)`);
+
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_contacts_company ON crm_contacts(company_id)`);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_contacts_status ON crm_contacts(status)`);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_notes_contact ON crm_notes(contact_id)`);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_tasks_due ON crm_tasks(due_date, status)`);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_tasks_contact ON crm_tasks(contact_id)`);
 
-  return db;
+
+
+  // Ensure counters table exists (shared with inventory, safe to re-declare)
+    await db.execute(`CREATE TABLE IF NOT EXISTS counters (
+    name TEXT PRIMARY KEY,
+    value INTEGER NOT NULL DEFAULT 1000
+    )`);
+
+    // Seed po_sys counter if not already there
+    const poCounter = await queryOne("SELECT value FROM counters WHERE name = 'po_sys'");
+    if (!poCounter) {
+    await db.execute("INSERT INTO counters (name, value) VALUES ('po_sys', 1000)");
+    }
+
+    return db;
 }
 
 async function queryAll(sql, params = []) {

@@ -74,6 +74,8 @@ function requireLogin(req, res, next) {
   app.use('/api/clients', require('./routes/clients'));
   app.use('/api/tasks', require('./routes/tasks'));
   app.use('/api/settings', require('./routes/settings'));
+  const poRoutes = require('./routes/po');
+  app.use('/api/po', requireAuth, poRoutes);
 
   app.get('/api/auth/me', (req, res) => {
     res.json({ username: req.user.username, role: req.user.role });
