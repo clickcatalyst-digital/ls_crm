@@ -335,7 +335,7 @@
     async function initTaskScope() {
       currentUser = await fetch('/api/auth/me').then(r => r.json()).catch(() => null);
       if (currentUser) {
-        const name = currentUser.full_name || currentUser.username;
+        const name = currentUser.full_name || capitalize(currentUser.username);
         document.getElementById('welcomeHead').textContent = `Welcome, ${name}`;
       }
       const isApprover = currentUser && ['admin','manager'].includes(currentUser.role);
@@ -408,7 +408,7 @@
         assignableUsers.map(u => `
           <button onclick="assignTask(${taskId}, '${u.username}')">
             <span class="avatar" style="background:${colorFor(u.username)}; width:20px; height:20px; cursor:default;">${initialsFor(u)}</span>
-            ${esc(u.username)}
+            ${esc(capitalize(u.username))}
           </button>`).join('') +
         `<div class="pop-divider"></div>
          <button class="unassign-opt" onclick="assignTask(${taskId}, null)">Unassign</button>`;

@@ -62,6 +62,11 @@ function formatQty(n) {
   return (n || 0).toLocaleString('en-IN');
 }
 
+// Capitalize first letter for display (storage stays lowercase)
+function capitalize(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
 // ========== HTML ESCAPE (prevents injection + broken render on <, &, quotes) ==========
 function esc(v) {
   if (v === null || v === undefined) return '';
