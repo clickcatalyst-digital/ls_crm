@@ -68,14 +68,14 @@ function requireLogin(req, res, next) {
   app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'dashboard.html')));
   app.get('/clients', (req, res) => res.sendFile(path.join(__dirname, 'views', 'clients.html')));
   app.get('/settings', (req, res) => res.sendFile(path.join(__dirname, 'views', 'settings.html')));
+  app.get('/po', (req, res) => res.sendFile(path.join(__dirname, 'views', 'po.html')));
 
   // API
   app.use('/api/products', require('./routes/products'));
   app.use('/api/clients', require('./routes/clients'));
   app.use('/api/tasks', require('./routes/tasks'));
   app.use('/api/settings', require('./routes/settings'));
-  const poRoutes = require('./routes/po');
-  app.use('/api/po', requireAuth, poRoutes);
+  app.use('/api/po', require('./routes/po'));
 
   app.get('/api/auth/me', (req, res) => {
     res.json({ username: req.user.username, role: req.user.role });

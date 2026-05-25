@@ -41,6 +41,13 @@ router.get('/companies/:companyId/open', async (req, res) => {
   ));
 });
 
+// Inventory items for line item selector
+router.get('/items', async (req, res) => {
+  res.json(await queryAll(
+    "SELECT item_code, description FROM items WHERE status = 'active' ORDER BY item_code"
+  ));
+});
+
 // CREATE
 router.post('/', async (req, res) => {
   const {

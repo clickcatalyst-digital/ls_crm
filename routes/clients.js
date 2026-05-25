@@ -19,6 +19,7 @@ router.get('/', async (req, res) => {
   if (q) { sql += ' AND (c.poc_name LIKE ? OR co.name LIKE ? OR c.email LIKE ?)'; params.push(`%${q}%`, `%${q}%`, `%${q}%`); }
   if (status) { sql += ' AND c.status = ?'; params.push(status); }
   if (product_id) { sql += ' AND c.product_id = ?'; params.push(product_id); }
+  if (req.query.company_id) { sql += ' AND c.company_id = ?'; params.push(req.query.company_id); }
   sql += ' ORDER BY c.updated_at DESC LIMIT 500';
   res.json(await queryAll(sql, params));
 });
