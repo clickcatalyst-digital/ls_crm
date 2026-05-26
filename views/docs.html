@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f0f0e">
+  <title>Docs | LS CRM</title>
+  <link rel="stylesheet" href="/public/css/style.css">
+  <style>
+    .dropzone {
+      border: 2px dashed var(--border); border-radius: var(--radius);
+      padding: 48px 24px; text-align: center; cursor: pointer;
+      transition: all 0.2s; background: var(--bg);
+    }
+    .dropzone:hover, .dropzone.drag { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 6%, var(--bg)); }
+    .dropzone svg { width: 40px; height: 40px; stroke: var(--text-muted); margin-bottom: 12px; }
+    .dropzone .dz-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .dropzone .dz-sub { font-size: 12px; color: var(--text-muted); }
+    .dropzone.busy { opacity: 0.6; pointer-events: none; }
+
+    .doc-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+    .doc-filter {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-muted); font-family: var(--font); font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 14px; cursor: pointer; transition: all 0.15s;
+    }
+    .doc-filter.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    .doc-type-tag {
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+      padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-muted);
+    }
+    .st-pending  { color: var(--warning); }
+    .st-approved { color: var(--success); }
+    .st-pushed   { color: var(--primary); }
+    .st-rejected { color: var(--danger); }
+
+    /* ===== Review / Edit Panel ===== */
+    .rv-overlay {
+      position: fixed; inset: 0; z-index: 900; background: rgba(0,0,0,0.45);
+      display: flex; justify-content: flex-end; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .rv-overlay.open { opacity: 1; pointer-events: all; }
+    .rv-panel {
+      background: var(--surface); border-left: 1px solid var(--border);
+      width: 460px; max-width: 100vw; height: 100vh; display: flex; flex-direction: column;
+      transform: translateX(30px); transition: transform 0.2s; overflow: hidden;
+    }
+    .rv-overlay.open .rv-panel { transform: translateX(0); }
+    @media (max-width: 600px) { .rv-panel { width: 100%; } }
+    .rv-head { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; flex-shrink: 0; }
+    .rv-doc-no { font-size: 16px; font-weight: 700; }
+    .rv-status { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 8px; border-radius: 10px; display: inline-block; margin-top: 4px; }
+    .rv-status.pending { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
+    .rv-status.approved { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+    .rv-status.pushed { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); }
+    .rv-status.rejected { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+    .rv-close { background: none; border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-muted); width: 28px; height: 28px; cursor: pointer; font-family: var(--font); }
+    .rv-close:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+    .rv-body { flex: 1; overflow-y: auto; padding: 16px 18px; }
+    .rv-field { margin-bottom: 12px; }
+    .rv-field label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 4px; }
+    .rv-field label .req { color: var(--danger); }
+    .rv-field input, .rv-field textarea {
+      width: 100%; box-sizing: border-box; font-family: var(--font); font-size: 13px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); padding: 7px 10px;
+    }
+    .rv-field input:focus, .rv-field textarea:focus { outline: none; border-color: var(--primary); }
+    .rv-field input:disabled { opacity: 0.6; cursor: not-allowed; }
+    .rv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+    .rv-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .rv-add-row { display: flex; gap: 8px; margin-top: 8px; }
+    .rv-add-row input { flex: 1; }
+    .rv-add-btn, .rv-line-add {
+      background: var(--bg); border: 1px dashed var(--border); border-radius: var(--radius);
+      color: var(--text-muted); font-family: var(--font); font-size: 11px; font-weight: 700;
+      padding: 7px 12px; cursor: pointer; transition: all 0.15s;
+    }
+    .rv-add-btn:hover, .rv-line-add:hover { border-color: var(--primary); color: var(--primary); }
+    .rv-line { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; margin-bottom: 8px; background: var(--bg); }
+    .rv-line .rv-grid { grid-template-columns: 2fr 1fr; }
+    .rv-line-del { font-size: 10px; color: var(--danger); cursor: pointer; float: right; font-weight: 700; }
+    .rv-foot { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-shrink: 0; }
+    .rv-foot button { flex: 1; border: none; border-radius: var(--radius); padding: 10px; font-family: var(--font); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; cursor: pointer; transition: opacity 0.15s; }
+    .rv-foot button:hover { opacity: 0.88; }
+    .rv-btn-save { background: var(--bg); color: var(--text); border: 1px solid var(--border) !important; }
+    .rv-btn-approve { background: var(--success); color: #fff; }
+    .rv-btn-reject { background: var(--bg); color: var(--danger); border: 1px solid var(--danger) !important; flex: 0 0 auto !important; padding: 10px 16px !important; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="/" class="nav-brand">LS<span>TECHNOLOGIES</span> CRM</a>
+    <div class="nav-links">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">
+        <svg id="themeIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/>
+        </svg>
+      </button>
+      <a href="/">Dashboard</a>
+      <a href="/clients">Clients</a>
+      <a href="/po">Purchase Orders</a>
+      <a href="/docs" class="active">Docs</a>
+    </div>
+    <div class="cog-menu" id="cogMenu">
+      <button class="cog-btn" onclick="toggleCogMenu()" title="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+        </svg>
+      </button>
+      <div class="cog-dropdown" id="cogDropdown">
+        <button onclick="toggleTheme(); toggleCogMenu()">
+          <svg viewBox="0 0 24 24" id="cogThemeIcon" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/>
+          </svg>
+          <span id="cogThemeLabel">Dark Mode</span>
+        </button>
+        <a href="/api/logout" class="logout-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h6a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 16.5 21h-6a2.25 2.25 0 0 1-2.25-2.25V15m-3 0-3-3m0 0 3-3m-3 3H15"/>
+          </svg>
+          Logout
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <h1>Docs</h1>
+      <p>Drop any document — invoice, PO, bill of entry, bank statement — it gets read and queued for approval</p>
+    </div>
+
+    <div class="card">
+      <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+        </svg>
+        <div class="dz-title" id="dzTitle">Drop a PDF here, or click to browse</div>
+        <div class="dz-sub">The document is read automatically &middot; review &amp; approve before it reaches Tally</div>
+        <input type="file" id="fileInput" accept="application/pdf" style="display:none" onchange="handleFiles(this.files)">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="doc-filters" id="docFilters">
+        <button class="doc-filter active" data-status="all" onclick="setFilter('all')">All</button>
+        <button class="doc-filter" data-status="pending" onclick="setFilter('pending')">Pending</button>
+        <button class="doc-filter" data-status="approved" onclick="setFilter('approved')">Approved</button>
+        <button class="doc-filter" data-status="pushed" onclick="setFilter('pushed')">Pushed</button>
+        <button class="doc-filter" data-status="rejected" onclick="setFilter('rejected')">Rejected</button>
+      </div>
+      <div id="docsTable-container"></div>
+    </div>
+
+    <!-- Review / Edit Panel -->
+    <div id="reviewPanel" class="rv-overlay" onclick="if(event.target===this)closeReview()">
+      <div class="rv-panel">
+        <div class="rv-head">
+          <div>
+            <div class="rv-doc-no" id="rvDocNo">&mdash;</div>
+            <span class="rv-status" id="rvStatus">pending</span>
+          </div>
+          <button class="rv-close" onclick="closeReview()">&times;</button>
+        </div>
+        <div class="rv-body" id="rvBody"></div>
+        <div class="rv-foot" id="rvFoot"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/public/js/app.js"></script>
+  <script>
+    const DOC_TYPE_LABEL = {
+      freight_invoice: 'Freight Invoice', purchase_invoice: 'Purchase Invoice',
+      purchase_order: 'Purchase Order', bill_of_entry: 'Bill of Entry', bank_statement: 'Bank Statement'
+    };
+    let statusFilter = 'all';
+
+    const docsTable = new PaginatedTable({
+      containerId: 'docsTable-container',
+      pageSize: 15,
+      titleText: 'Documents',
+      columns: [
+        { label: 'Document', render: d => `<strong style="cursor:pointer;color:var(--primary);" onclick="openReview(${d.id})">${esc(d.invoice_no || d.original_filename || 'Untitled')}</strong>` },
+        { label: 'Type', render: d => `<span class="doc-type-tag">${esc(DOC_TYPE_LABEL[d.doc_type] || d.doc_type || '—')}</span>` },
+        { label: 'Party', render: d => esc(d.party_name) || '—' },
+        { label: 'Amount', render: d => d.net_amount ? '₹' + Number(d.net_amount).toLocaleString('en-IN', {minimumFractionDigits:2}) : '—' },
+        { label: 'Status', render: d => `<span class="st-${d.status}" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;">${esc(d.status)}</span>` },
+        { label: 'Uploaded', render: d => formatDate(d.created_at) },
+      ]
+    });
+
+    function setFilter(s) {
+      statusFilter = s;
+      document.querySelectorAll('#docFilters .doc-filter').forEach(b => b.classList.toggle('active', b.dataset.status === s));
+      loadDocs();
+    }
+
+    async function loadDocs() {
+      const q = statusFilter === 'all' ? '' : `?status=${statusFilter}`;
+      try { docsTable.load(await api(`/api/invoices${q}`)); } catch (e) {}
+    }
+
+    // ===== Upload (single engine: PDF → OpenRouter native) =====
+    const dz = document.getElementById('dropzone');
+    ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
+    ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
+    dz.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+
+    async function handleFiles(files) {
+      const file = files[0];
+      if (!file) return;
+      if (file.type !== 'application/pdf') { showToast('Only PDF files are supported', 'error'); return; }
+      dz.classList.add('busy');
+      document.getElementById('dzTitle').textContent = `Reading ${file.name}… (this can take up to a minute)`;
+      const fd = new FormData(); fd.append('pdf', file);
+      try {
+        const res = await fetch('/api/invoices/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) {
+          const isRate = (data.error || '').includes('RATE_LIMIT');
+          throw new Error(isRate ? 'OpenRouter limit hit — try again shortly' : (data.error || 'Upload failed'));
+        }
+        showToast('Document read — review it before approving');
+        loadDocs();
+        if (data.invoiceId) openReview(data.invoiceId);
+      } catch (e) {
+        showToast(e.message || 'Upload failed', 'error');
+      } finally {
+        dz.classList.remove('busy');
+        document.getElementById('dzTitle').textContent = 'Drop a PDF here, or click to browse';
+        document.getElementById('fileInput').value = '';
+      }
+    }
+
+    // ===== Review / Edit panel =====
+    let _rvInv = null;
+    let _rvCustom = [];   // user-added extra fields [{key,value}]
+    let _rvLines = [];    // editable line items
+    let _rvLocked = false;
+
+    const FIELD_DEFS = [
+      { k: 'invoice_no', label: 'Document No', req: true },
+      { k: 'invoice_date', label: 'Date', req: true },
+      { k: 'party_name', label: 'Party (supplier)', req: true, full: true },
+      { k: 'party_gstin', label: 'Party GSTIN' },
+      { k: 'buyer_gstin', label: 'Buyer GSTIN' },
+      { k: 'place_of_supply', label: 'Place of Supply', req: true },
+      { k: 'taxable_value', label: 'Taxable Value', req: true },
+      { k: 'cgst', label: 'CGST' },
+      { k: 'sgst', label: 'SGST' },
+      { k: 'igst', label: 'IGST' },
+      { k: 'net_amount', label: 'Net Amount', req: true },
+    ];
+    const FREIGHT_FIELDS = [
+      { k: 'mawb_no', label: 'MAWB No' }, { k: 'flight_no', label: 'Flight No' },
+      { k: 'commodity', label: 'Commodity' }, { k: 'supplier_ref', label: 'Supplier Ref' },
+    ];
+
+    function fld(f, val) {
+      return `<div class="rv-field" ${f.full ? 'style="grid-column:1/-1"' : ''}>
+        <label>${f.label}${f.req ? ' <span class="req">*</span>' : ''}</label>
+        <input id="rv_${f.k}" value="${esc(val ?? '')}" ${_rvLocked ? 'disabled' : ''}>
+      </div>`;
+    }
+
+    async function openReview(id) {
+      const panel = document.getElementById('reviewPanel');
+      panel.classList.add('open');
+      document.getElementById('rvBody').innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Loading…</div>';
+      document.getElementById('rvFoot').innerHTML = '';
+      try {
+        const inv = await api(`/api/invoices/${id}`);
+        _rvInv = inv;
+        _rvLocked = inv.status !== 'pending';
+        _rvLines = Array.isArray(inv.line_items) ? JSON.parse(JSON.stringify(inv.line_items)) : [];
+        _rvCustom = [];
+
+        document.getElementById('rvDocNo').textContent = inv.invoice_no || inv.original_filename || 'Untitled';
+        const st = document.getElementById('rvStatus');
+        st.textContent = inv.status; st.className = `rv-status ${inv.status}`;
+
+        document.getElementById('rvBody').innerHTML = `
+          <div class="rv-field"><label>Document Type</label><input id="rv_doc_type" value="${esc(inv.doc_type||'')}" ${_rvLocked?'disabled':''}></div>
+          <div class="rv-section-label">Core fields</div>
+          <div class="rv-grid">${FIELD_DEFS.map(f => fld(f, inv[f.k])).join('')}</div>
+          <div class="rv-section-label">Freight / extra (optional)</div>
+          <div class="rv-grid">${FREIGHT_FIELDS.map(f => fld(f, inv[f.k])).join('')}</div>
+          <div class="rv-section-label">Line items</div>
+          <div id="rvLines"></div>
+          ${_rvLocked ? '' : '<button class="rv-line-add" onclick="rvAddLine()">+ Add line item</button>'}
+          <div class="rv-section-label">Custom fields</div>
+          <div id="rvCustomFields"></div>
+          ${_rvLocked ? '' : `<div class="rv-add-row">
+            <input id="rvNewKey" placeholder="Field name">
+            <input id="rvNewVal" placeholder="Value">
+            <button class="rv-add-btn" onclick="rvAddCustom()">Add</button>
+          </div>`}
+        `;
+        renderLines(); renderCustom();
+
+        const foot = document.getElementById('rvFoot');
+        if (inv.status === 'pending') {
+          foot.innerHTML = `
+            <button class="rv-btn-reject" onclick="rvReject()">Reject</button>
+            <button class="rv-btn-save" onclick="rvSave(false)">Save</button>
+            <button class="rv-btn-approve" onclick="rvApprove()">Approve → Tally</button>`;
+        } else {
+          foot.innerHTML = `<button class="rv-btn-save" onclick="closeReview()">Close (${esc(inv.status)})</button>`;
+        }
+      } catch (e) {
+        document.getElementById('rvBody').innerHTML = '<div style="color:var(--danger)">Failed to load.</div>';
+      }
+    }
+
+    function renderLines() {
+      const box = document.getElementById('rvLines'); if (!box) return;
+      box.innerHTML = _rvLines.map((li, i) => `
+        <div class="rv-line">
+          ${_rvLocked ? '' : `<span class="rv-line-del" onclick="rvDelLine(${i})">Remove</span>`}
+          <div class="rv-field"><label>Description</label><input value="${esc(li.description||'')}" oninput="_rvLines[${i}].description=this.value" ${_rvLocked?'disabled':''}></div>
+          <div class="rv-grid">
+            <div class="rv-field"><label>HSN</label><input value="${esc(li.hsn||'')}" oninput="_rvLines[${i}].hsn=this.value" ${_rvLocked?'disabled':''}></div>
+            <div class="rv-field"><label>Amount</label><input value="${esc(li.amount||'')}" oninput="_rvLines[${i}].amount=this.value" ${_rvLocked?'disabled':''}></div>
+          </div>
+        </div>`).join('') || '<div style="color:var(--text-muted);font-size:12px;">No line items.</div>';
+    }
+    function rvAddLine() { _rvLines.push({ description:'', hsn:'', qty:'', uom:'', rate:'', amount:'' }); renderLines(); }
+    function rvDelLine(i) { _rvLines.splice(i,1); renderLines(); }
+
+    function renderCustom() {
+      const box = document.getElementById('rvCustomFields'); if (!box) return;
+      box.innerHTML = _rvCustom.map((c, i) => `
+        <div class="rv-field"><label>${esc(c.key)} ${_rvLocked?'':`<span class="rv-line-del" onclick="rvDelCustom(${i})">remove</span>`}</label>
+        <input value="${esc(c.value)}" oninput="_rvCustom[${i}].value=this.value" ${_rvLocked?'disabled':''}></div>`).join('');
+    }
+    function rvAddCustom() {
+      const k = document.getElementById('rvNewKey').value.trim();
+      const v = document.getElementById('rvNewVal').value.trim();
+      if (!k) return showToast('Enter a field name', 'error');
+      _rvCustom.push({ key: k, value: v });
+      document.getElementById('rvNewKey').value = ''; document.getElementById('rvNewVal').value = '';
+      renderCustom();
+    }
+    function rvDelCustom(i) { _rvCustom.splice(i,1); renderCustom(); }
+
+    function collectReview() {
+      const body = { line_items: _rvLines };
+      document.querySelectorAll('#rvBody input[id^="rv_"]').forEach(inp => {
+        body[inp.id.replace('rv_','')] = inp.value.trim();
+      });
+      if (_rvCustom.length) body.review_notes = 'Custom: ' + JSON.stringify(_rvCustom);
+      return body;
+    }
+
+    async function rvSave(silent) {
+      if (!_rvInv) return;
+      await api(`/api/invoices/${_rvInv.id}`, { method: 'PUT', body: collectReview() });
+      if (!silent) { showToast('Saved'); loadDocs(); }
+    }
+    async function rvApprove() {
+      if (!_rvInv) return;
+      await rvSave(true); // persist edits + rebuild XML first
+      await api(`/api/invoices/${_rvInv.id}/approve`, { method: 'POST', body: {} });
+      showToast('Approved — local agent will push to Tally');
+      closeReview(); loadDocs();
+    }
+    async function rvReject() {
+      if (!_rvInv) return;
+      await api(`/api/invoices/${_rvInv.id}/reject`, { method: 'POST', body: {} });
+      showToast('Rejected'); closeReview(); loadDocs();
+    }
+    function closeReview() { document.getElementById('reviewPanel').classList.remove('open'); _rvInv = null; }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReview(); });
+
+    loadDocs();
+  </script>
+
+  <nav class="bottom-nav">
+    <a href="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>Dashboard</a>
+    <a href="/clients"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>Clients</a>
+    <a href="/docs" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>Docs</a>
+  </nav>
+</body>
+</html>

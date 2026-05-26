@@ -11,13 +11,15 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@libsql/client": "^0.14.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
-    "pg": "^8.21.0",
-    "@libsql/client": "^0.14.0"
+    "multer": "^2.1.1",
+    "pdf-parse": "^2.4.5",
+    "pg": "^8.21.0"
   }
 }

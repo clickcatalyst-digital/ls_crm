@@ -85,20 +85,60 @@ async function initDB() {
     )`);
 
     await db.execute(`CREATE TABLE IF NOT EXISTS crm_po_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    po_id INTEGER NOT NULL REFERENCES crm_purchase_orders(id) ON DELETE CASCADE,
-    item_code TEXT NOT NULL,
-    quantity_ordered INTEGER NOT NULL DEFAULT 1,
-    unit_price REAL,
-    notes TEXT
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        po_id INTEGER NOT NULL REFERENCES crm_purchase_orders(id) ON DELETE CASCADE,
+        item_code TEXT NOT NULL,
+        quantity_ordered INTEGER NOT NULL DEFAULT 1,
+        unit_price REAL,
+        notes TEXT
     )`);
+
+    await db.execute(`CREATE TABLE IF NOT EXISTS crm_invoices (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+    uploaded_by      TEXT,
+    original_filename TEXT,
+    doc_type         TEXT DEFAULT 'freight_invoice',
+    invoice_no       TEXT,
+    invoice_date     TEXT,
+    party_name       TEXT,
+    party_gstin      TEXT,
+    buyer_gstin      TEXT,
+    place_of_supply  TEXT,
+    mawb_no          TEXT,
+    flight_no        TEXT,
+    commodity        TEXT,
+    origin_airport   TEXT,
+    dest_airport     TEXT,
+    gross_weight     REAL,
+    supplier_ref     TEXT,
+    taxable_value    REAL,
+    cgst             REAL,
+    sgst             REAL,
+    igst             REAL,
+    total_tax        REAL,
+    net_amount       REAL,
+    line_items       TEXT DEFAULT '[]',
+    tally_xml        TEXT,
+    status           TEXT DEFAULT 'pending',
+    review_notes     TEXT,
+    task_id          INTEGER,
+    approved_at      DATETIME,
+    pushed_at        DATETIME
+  )`);
+
+  try { await db.execute(`ALTER TABLE crm_tasks ADD COLUMN invoice_id INTEGER REFERENCES crm_invoices(id) ON DELETE SET NULL`); } catch (e) {}
+
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_invoices_status ON crm_invoices(status)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON crm_invoices(invoice_date)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_tasks_invoice ON crm_tasks(invoice_id)`);
 
     // Migrations — safe to re-run, errors mean column already exists
     try {
-    await db.execute(`ALTER TABLE outwards ADD COLUMN po_id INTEGER REFERENCES crm_purchase_orders(id) ON DELETE SET NULL`);
+        await db.execute(`ALTER TABLE outwards ADD COLUMN po_id INTEGER REFERENCES crm_purchase_orders(id) ON DELETE SET NULL`);
     } catch (e) {}
     try {
-    await db.execute(`ALTER TABLE outwards ADD COLUMN company_id INTEGER REFERENCES crm_companies(id) ON DELETE SET NULL`);
+        await db.execute(`ALTER TABLE outwards ADD COLUMN company_id INTEGER REFERENCES crm_companies(id) ON DELETE SET NULL`);
     } catch (e) {}
 
     await db.execute(`CREATE INDEX IF NOT EXISTS idx_po_company ON crm_purchase_orders(company_id)`);

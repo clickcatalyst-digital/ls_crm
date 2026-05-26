@@ -388,6 +388,7 @@
       <a href="/" class="active">Dashboard</a>
       <a href="/clients">Clients</a>
       <a href="/po">Purchase Orders</a>
+      <a href="/docs">Docs</a>
     </div>
     <div class="cog-menu" id="cogMenu">
       <button class="cog-btn" onclick="toggleCogMenu()" title="Menu">
@@ -904,101 +905,201 @@
     return `<span class="ov-assigned-chip">
         <span class="avatar" style="background:${colorFor(username)};width:18px;height:18px;font-size:8px;cursor:default;">${initialsFor(u)}</span>
         ${esc(capitalize(username))}
-    </span>`;
+        </span>`;
     }
 
     async function openTaskOverlay(taskId) {
-    const overlay = document.getElementById('taskOverlay');
-    overlay.classList.add('open');
-    document.getElementById('ovTitle').textContent = 'Loading…';
-    document.getElementById('ovContactSection').style.display = 'none';
-    document.getElementById('ovNoteSection').style.display = 'none';
+        const overlay = document.getElementById('taskOverlay');
+        overlay.classList.add('open');
+        document.getElementById('ovTitle').textContent = 'Loading…';
+        document.getElementById('ovContactSection').style.display = 'none';
+        document.getElementById('ovNoteSection').style.display = 'none';
 
-    try {
-        const t = await api(`/api/tasks/${taskId}`);
-        _ovTask = t;
+        try {
+            const t = await api(`/api/tasks/${taskId}`);
+            _ovTask = t;
+            // reset any invoice-mode mutations from a prior open
+            document.querySelectorAll('.ov-inv-btn').forEach(b => b.remove());
+            document.getElementById('ovDoneBtn').onclick = overlayToggleDone;
+            document.getElementById('ovDoneBtn').style.display = '';
+            document.getElementById('ovViewLink').style.display = '';
+            document.getElementById('ovNoteSection').querySelector('.ov-section-label').textContent = 'Last Note';
 
-        // Header
-        document.getElementById('ovStatusBadge').textContent = t.status === 'done' ? 'Done' : 'Open';
-        document.getElementById('ovStatusBadge').className = `ov-status-badge ${t.status}`;
-        document.getElementById('ovTitle').textContent = t.title;
-        document.getElementById('ovTitle').contentEditable = t.status === 'done' ? 'false' : 'true';
+            // Header
+            document.getElementById('ovStatusBadge').textContent = t.status === 'done' ? 'Done' : 'Open';
+            document.getElementById('ovStatusBadge').className = `ov-status-badge ${t.status}`;
+            document.getElementById('ovTitle').textContent = t.title;
+            document.getElementById('ovTitle').contentEditable = t.status === 'done' ? 'false' : 'true';
 
-        // Meta
-        document.getElementById('ovDueDate').value = t.due_date || '';
-        document.getElementById('ovDueDate').disabled = t.status === 'done';
-        document.getElementById('ovTitle').contentEditable = t.status === 'done' ? 'false' : 'true';
-        document.getElementById('overlaySaveArea').style.display = t.status === 'done' ? 'none' : '';
-        document.getElementById('ovAssigned').innerHTML = _ovAvatarChip(t.assigned_to);
+            // Meta
+            document.getElementById('ovDueDate').value = t.due_date || '';
+            document.getElementById('ovDueDate').disabled = t.status === 'done';
+            document.getElementById('ovTitle').contentEditable = t.status === 'done' ? 'false' : 'true';
+            document.getElementById('overlaySaveArea').style.display = t.status === 'done' ? 'none' : '';
+            document.getElementById('ovAssigned').innerHTML = _ovAvatarChip(t.assigned_to);
 
-        // Done button
-        const doneBtn = document.getElementById('ovDoneBtn');
-        if (t.status === 'done') {
-        doneBtn.textContent = 'Reopen';
-        doneBtn.className = 'ov-btn-done reopen';
-        } else {
-        doneBtn.textContent = 'Mark Done';
-        doneBtn.className = 'ov-btn-done';
+            // Done button
+            const doneBtn = document.getElementById('ovDoneBtn');
+            if (t.status === 'done') {
+                doneBtn.textContent = 'Reopen';
+                doneBtn.className = 'ov-btn-done reopen';
+            } else {
+                doneBtn.textContent = 'Mark Done';
+                doneBtn.className = 'ov-btn-done';
+            }
+
+            // View contact link
+            const viewLink = document.getElementById('ovViewLink');
+            if (t.crm_contact_id) {
+                viewLink.href = `/clients?open=${t.crm_contact_id}`;
+                viewLink.style.display = '';
+            } else {
+                viewLink.style.display = 'none';
+            }
+
+            // Contact section
+            if (t.poc_name) {
+                document.getElementById('ovContactSection').style.display = '';
+                document.getElementById('ovContactName').textContent = t.poc_name;
+                document.getElementById('ovContactDesig').textContent = t.designation || '';
+                document.getElementById('ovContactCompany').textContent = t.company_name || '';
+                const links = [];
+                if (t.email) links.push(`<a href="mailto:${esc(t.email)}">✉ ${esc(t.email)}</a>`);
+                if (t.phone) links.push(`<a href="tel:${esc(t.phone)}">✆ ${esc(t.phone)}</a>`);
+                document.getElementById('ovContactLinks').innerHTML = links.join('');
+                const statusMap = { new:'New lead', contacted:'Contacted', qualified:'Qualified', customer:'Customer', lost:'Lost' };
+                document.getElementById('ovCrmStatus').textContent = statusMap[t.contact_status] || t.contact_status || '';
+            }
+
+            // ===== INVOICE TASK: render invoice details instead of contact/note/log =====
+            if (t.invoice_id) {
+            await renderInvoiceOverlay(t);
+            return;
+            }
+
+            // Last note
+            document.getElementById('ovNoteSection').style.display = '';
+            if (t.last_note) {
+                document.getElementById('ovNoteContent').innerHTML = `
+                    <div class="ov-note-card">
+                    <div class="ov-note-body">${esc(t.last_note.body)}</div>
+                    <div class="ov-note-meta">${t.last_note.created_by ? esc(capitalize(t.last_note.created_by)) + ' · ' : ''}${fmtTaskDate((t.last_note.created_at || '').substring(0,10))}</div>
+                    </div>`;
+            } else {
+                document.getElementById('ovNoteContent').innerHTML = `<div class="ov-no-note">No notes on this contact yet.</div>`;
+            }
+
+            // Log call section — only when task is open and linked to a contact
+            const logSection = document.getElementById('ovLogSection');
+            const logBtn = document.getElementById('ovLogBtn');
+            if (t.contact_id && t.status === 'open') {
+                logSection.style.display = '';
+                logBtn.style.display = '';
+                document.getElementById('ovCallNote').value = '';
+                document.getElementById('ovNextDate').value = '';
+                document.getElementById('ovNextTitle').value = '';
+                document.getElementById('ovMarkDone').checked = true;
+            } else {
+                logSection.style.display = 'none';
+                logBtn.style.display = 'none';
+            }
+
+        } catch(e) {
+            document.getElementById('ovTitle').textContent = 'Failed to load task';
         }
-
-        // View contact link
-        const viewLink = document.getElementById('ovViewLink');
-        if (t.crm_contact_id) {
-        viewLink.href = `/clients?open=${t.crm_contact_id}`;
-        viewLink.style.display = '';
-        } else {
-        viewLink.style.display = 'none';
-        }
-
-        // Contact section
-        if (t.poc_name) {
-        document.getElementById('ovContactSection').style.display = '';
-        document.getElementById('ovContactName').textContent = t.poc_name;
-        document.getElementById('ovContactDesig').textContent = t.designation || '';
-        document.getElementById('ovContactCompany').textContent = t.company_name || '';
-        const links = [];
-        if (t.email) links.push(`<a href="mailto:${esc(t.email)}">✉ ${esc(t.email)}</a>`);
-        if (t.phone) links.push(`<a href="tel:${esc(t.phone)}">✆ ${esc(t.phone)}</a>`);
-        document.getElementById('ovContactLinks').innerHTML = links.join('');
-        const statusMap = { new:'New lead', contacted:'Contacted', qualified:'Qualified', customer:'Customer', lost:'Lost' };
-        document.getElementById('ovCrmStatus').textContent = statusMap[t.contact_status] || t.contact_status || '';
-        }
-
-        // Last note
-        document.getElementById('ovNoteSection').style.display = '';
-        if (t.last_note) {
-        document.getElementById('ovNoteContent').innerHTML = `
-            <div class="ov-note-card">
-            <div class="ov-note-body">${esc(t.last_note.body)}</div>
-            <div class="ov-note-meta">${t.last_note.created_by ? esc(capitalize(t.last_note.created_by)) + ' · ' : ''}${fmtTaskDate((t.last_note.created_at || '').substring(0,10))}</div>
-            </div>`;
-        } else {
-        document.getElementById('ovNoteContent').innerHTML = `<div class="ov-no-note">No notes on this contact yet.</div>`;
-        }
-
-        // Log call section — only when task is open and linked to a contact
-        const logSection = document.getElementById('ovLogSection');
-        const logBtn = document.getElementById('ovLogBtn');
-        if (t.contact_id && t.status === 'open') {
-        logSection.style.display = '';
-        logBtn.style.display = '';
-        document.getElementById('ovCallNote').value = '';
-        document.getElementById('ovNextDate').value = '';
-        document.getElementById('ovNextTitle').value = '';
-        document.getElementById('ovMarkDone').checked = true;
-        } else {
-        logSection.style.display = 'none';
-        logBtn.style.display = 'none';
-        }
-
-    } catch(e) {
-        document.getElementById('ovTitle').textContent = 'Failed to load task';
-    }
     }
 
     function closeTaskOverlay() {
-    document.getElementById('taskOverlay').classList.remove('open');
-    _ovTask = null;
+        document.getElementById('taskOverlay').classList.remove('open');
+        _ovTask = null;
+    }
+
+    async function renderInvoiceOverlay(t) {
+      // Hide the contact/note/log sections — this is an invoice approval task
+      document.getElementById('ovContactSection').style.display = 'none';
+      document.getElementById('ovLogSection').style.display = 'none';
+      document.getElementById('ovLogBtn').style.display = 'none';
+      document.getElementById('ovViewLink').style.display = 'none';
+
+      const inv = await api(`/api/invoices/${t.invoice_id}`).catch(() => null);
+      const noteSection = document.getElementById('ovNoteSection');
+      noteSection.style.display = '';
+      noteSection.querySelector('.ov-section-label').textContent = 'Invoice Details';
+
+      if (!inv) {
+        document.getElementById('ovNoteContent').innerHTML = `<div class="ov-no-note">Could not load invoice.</div>`;
+        return;
+      }
+
+      const items = Array.isArray(inv.line_items) ? inv.line_items : [];
+      const STATUS_CLS = { pending:'var(--warning)', approved:'var(--success)', pushed:'var(--primary)', rejected:'var(--danger)' };
+      const money = v => '₹' + Number(v||0).toLocaleString('en-IN',{minimumFractionDigits:2});
+
+      document.getElementById('ovNoteContent').innerHTML = `
+        <div class="ov-note-card" style="border-left-color:${STATUS_CLS[inv.status]||'var(--border)'}">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-size:14px;font-weight:700;">${esc(inv.invoice_no || inv.original_filename || 'Untitled')}</span>
+            <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${STATUS_CLS[inv.status]||'var(--text-muted)'}">${esc(inv.status)}</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+            ${esc(inv.party_name || '—')}${inv.invoice_date ? ' · ' + esc(inv.invoice_date) : ''}${inv.commodity ? ' · ' + esc(inv.commodity) : ''}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">
+            <div><span style="color:var(--text-muted);">Taxable</span><br><strong>${money(inv.taxable_value)}</strong></div>
+            <div><span style="color:var(--text-muted);">GST</span><br><strong>${money(inv.total_tax)}</strong></div>
+          </div>
+          <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;font-weight:700;">Net Amount</span>
+            <span style="font-size:16px;font-weight:700;">${money(inv.net_amount)}</span>
+          </div>
+          ${items.length ? `<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">${items.length} line item${items.length>1?'s':''}: ${items.map(i=>esc(i.description)).join(', ')}</div>` : ''}
+        </div>
+        <a href="/docs" style="display:block;margin-top:10px;font-size:11px;color:var(--primary);text-decoration:none;text-align:center;">Open full review in Docs ↗</a>
+      `;
+
+      // Footer: approve/reject for pending; otherwise just status
+      const doneBtn = document.getElementById('ovDoneBtn');
+      const saveArea = document.getElementById('overlaySaveArea');
+      saveArea.style.display = 'none';
+      document.getElementById('ovTitle').contentEditable = 'false';
+      document.getElementById('ovDueDate').disabled = true;
+
+      // Remove any stale invoice buttons from a previous open
+      document.querySelectorAll('.ov-inv-btn').forEach(b => b.remove());
+
+      if (inv.status === 'pending') {
+        doneBtn.style.display = 'none';
+        const foot = document.querySelector('.ov-footer');
+
+        const approve = document.createElement('button');
+        approve.className = 'ov-btn-done ov-inv-btn';
+        approve.textContent = '✓ Approve → Tally';
+        approve.onclick = async () => {
+          approve.disabled = true; approve.textContent = 'Approving…';
+          await api(`/api/invoices/${inv.id}/approve`, { method:'POST', body:{} });
+          showToast('Approved — local agent will push to Tally');
+          closeTaskOverlay(); loadTasks(); renderCalendar();
+        };
+
+        const reject = document.createElement('button');
+        reject.className = 'ov-btn-save ov-inv-btn';
+        reject.style.color = 'var(--danger)';
+        reject.style.borderColor = 'var(--danger)';
+        reject.textContent = 'Reject';
+        reject.onclick = async () => {
+          await api(`/api/invoices/${inv.id}/reject`, { method:'POST', body:{} });
+          showToast('Invoice rejected');
+          closeTaskOverlay(); loadTasks(); renderCalendar();
+        };
+
+        foot.insertBefore(approve, foot.firstChild);
+        foot.insertBefore(reject, approve.nextSibling);
+      } else {
+        doneBtn.style.display = '';
+        doneBtn.textContent = inv.status === 'pushed' ? '✓ Pushed to Tally' : `Status: ${inv.status}`;
+        doneBtn.className = 'ov-btn-done reopen';
+        doneBtn.onclick = () => closeTaskOverlay();
+      }
     }
 
     async function logCall() {
@@ -1075,6 +1176,10 @@
     <a href="/po">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
         PO
+    </a>
+    <a href="/docs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+        Docs
     </a>
   </nav>
 </body>
