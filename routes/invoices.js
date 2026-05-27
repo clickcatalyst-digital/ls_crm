@@ -111,12 +111,15 @@ function classifyExtractError(msg) {
 async function parseInvoice(buffer) {
   const b64 = buffer.toString('base64');
   const parsed = await callOpenRouter({
-    model: 'google/gemma-4-31b-it',
+    model: process.env.EXTRACTION_MODEL || 'google/gemini-2.0-flash-001',
     temperature: 0,
     messages: [{ role: 'user', content: [
       { type: 'text', text: EXTRACTION_PROMPT },
       { type: 'file', file: { filename: 'doc.pdf', file_data: `data:application/pdf;base64,${b64}` } }
-    ]}]
+    ]}],
+    // Don't depend on the model's native file support — let OpenRouter parse the PDF
+    // first ('pdf-text' is the free digital-PDF engine) and pass text to the model.
+    plugins: [{ id: 'file-parser', pdf: { engine: 'pdf-text' } }]
   });
   return normalizeExtraction(parsed);
 }
