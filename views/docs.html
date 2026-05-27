@@ -30,10 +30,13 @@
       font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
       padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-muted);
     }
-    .st-pending  { color: var(--warning); }
-    .st-approved { color: var(--success); }
-    .st-pushed   { color: var(--primary); }
-    .st-rejected { color: var(--danger); }
+    .st-pending        { color: var(--warning); }
+    .st-approved       { color: var(--success); }
+    .st-pushed         { color: var(--primary); }
+    .st-rejected       { color: var(--danger); }
+    .st-reading        { color: var(--text-muted); }
+    .st-extract_failed { color: var(--danger); }
+    .st-push_failed    { color: var(--danger); }
 
     /* ===== Review / Edit Panel ===== */
     .rv-overlay {
@@ -87,6 +90,72 @@
     .rv-btn-save { background: var(--bg); color: var(--text); border: 1px solid var(--border) !important; }
     .rv-btn-approve { background: var(--success); color: #fff; }
     .rv-btn-reject { background: var(--bg); color: var(--danger); border: 1px solid var(--danger) !important; flex: 0 0 auto !important; padding: 10px 16px !important; }
+    .rv-btn-confirm { background: var(--primary); color: #fff; }
+    .rv-btn-dispatch { background: var(--success); color: #fff; }
+
+    /* ===== Docs / PO tab toggle ===== */
+    .docs-tabs { display: flex; gap: 6px; margin-bottom: 20px; }
+    .docs-tab {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-muted); font-family: var(--font); font-size: 12px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.4px; padding: 9px 18px; cursor: pointer; transition: all 0.15s;
+    }
+    .docs-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ===== PO bits inside the panel ===== */
+    .po-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; padding: 2px 8px; border-radius: 10px; }
+    .po-badge.draft     { background: color-mix(in srgb, var(--text-muted) 15%, transparent); color: var(--text-muted); }
+    .po-badge.confirmed { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); }
+    .po-badge.dispatched{ background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+    .po-badge.cancelled { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+    .po-source-tag { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-muted); margin-left: 6px; }
+
+    .po-item-row {
+      display: grid; grid-template-columns: 1fr 64px 84px 26px; gap: 6px; align-items: center; margin-bottom: 6px;
+    }
+    .po-item-row.head { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 2px; }
+    .po-item-row select, .po-item-row input {
+      font-family: var(--font); font-size: 12px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text); padding: 6px 8px; width: 100%; box-sizing: border-box;
+    }
+    .po-item-row .x { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
+    .po-item-row .x:hover { color: var(--danger); }
+    .po-existing-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 6px;
+    }
+    .po-existing-item .code { font-size: 11px; font-weight: 700; }
+    .po-existing-item .desc { font-size: 11px; color: var(--text-muted); }
+
+    /* ===== Processing overlay (async extraction) ===== */
+    .proc-overlay {
+      position: fixed; inset: 0; z-index: 950; background: color-mix(in srgb, var(--bg) 82%, transparent);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      display: none; align-items: center; justify-content: center;
+    }
+    .proc-overlay.open { display: flex; }
+    .proc-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 32px 28px; width: 340px; max-width: 90vw; text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    .proc-spin {
+      width: 42px; height: 42px; margin: 0 auto 18px; border-radius: 50%;
+      border: 3px solid var(--border); border-top-color: var(--primary);
+      animation: proc-rot 0.8s linear infinite;
+    }
+    @keyframes proc-rot { to { transform: rotate(360deg); } }
+    .proc-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .proc-sub { font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
+    .proc-sub .proc-file { color: var(--text); font-weight: 600; word-break: break-all; }
+    .proc-dismiss {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-muted); font-family: var(--font); font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.4px; padding: 9px 16px; cursor: pointer; transition: all 0.15s;
+    }
+    .proc-dismiss:hover { border-color: var(--primary); color: var(--primary); }
   </style>
 </head>
 <body>
@@ -100,7 +169,6 @@
       </button>
       <a href="/">Dashboard</a>
       <a href="/clients">Clients</a>
-      <a href="/po">Purchase Orders</a>
       <a href="/docs" class="active">Docs</a>
     </div>
     <div class="cog-menu" id="cogMenu">
@@ -129,7 +197,21 @@
   <div class="container">
     <div class="page-header">
       <h1>Docs</h1>
-      <p>Drop any document — invoice, PO, bill of entry, bank statement — it gets read and queued for approval</p>
+      <p>Drop any document — invoice, freight, bill of entry, bank statement — it gets read and queued for approval</p>
+    </div>
+
+    <div class="docs-tabs">
+      <button class="docs-tab active" data-tab="documents" onclick="setTab('documents')">Documents</button>
+      <button class="docs-tab" data-tab="po" onclick="setTab('po')">Purchase Orders</button>
+    </div>
+
+    <div class="tab-pane active" id="pane-documents">
+    <div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);">Add manually:</span>
+      <button class="rv-add-btn" onclick="openManual('purchase_invoice')">Invoice</button>
+      <button class="rv-add-btn" onclick="openManual('freight_invoice')">Freight Invoice</button>
+      <button class="rv-add-btn" onclick="openManual('bill_of_entry')">Bill of Entry</button>
+      <button class="rv-add-btn" onclick="openManual('bank_statement')">Bank Statement</button>
     </div>
 
     <div class="card">
@@ -150,8 +232,46 @@
         <button class="doc-filter" data-status="approved" onclick="setFilter('approved')">Approved</button>
         <button class="doc-filter" data-status="pushed" onclick="setFilter('pushed')">Pushed</button>
         <button class="doc-filter" data-status="rejected" onclick="setFilter('rejected')">Rejected</button>
+        <button class="doc-filter" data-status="deleted" onclick="setFilter('deleted')">Deleted</button>
       </div>
       <div id="docsTable-container"></div>
+    </div>
+    </div><!-- /pane-documents -->
+
+    <div class="tab-pane" id="pane-po">
+      <div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);">Create:</span>
+        <button class="rv-add-btn" onclick="openPONew()">+ New Purchase Order</button>
+      </div>
+
+      <div class="card">
+        <div class="doc-filters">
+          <select id="poFStatus" class="doc-filter" style="text-transform:none;" onchange="loadPOs()">
+            <option value="all">All statuses</option>
+            <option value="draft">Draft</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="dispatched">Dispatched</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <select id="poFCompany" class="doc-filter" style="text-transform:none;" onchange="loadPOs()">
+            <option value="">All companies</option>
+          </select>
+        </div>
+        <div id="poTable-container"></div>
+      </div>
+    </div><!-- /pane-po -->
+
+    <!-- Processing overlay (async extraction) -->
+    <div id="procOverlay" class="proc-overlay">
+      <div class="proc-card">
+        <div class="proc-spin"></div>
+        <div class="proc-title">Reading your document…</div>
+        <div class="proc-sub">
+          <span class="proc-file" id="procFile">document.pdf</span><br>
+          Extracting fields with AI. This can take up to a minute.
+        </div>
+        <button class="proc-dismiss" onclick="dismissProc()">Continue in background</button>
+      </div>
     </div>
 
     <!-- Review / Edit Panel -->
@@ -189,8 +309,22 @@
         { label: 'Amount', render: d => d.net_amount ? '₹' + Number(d.net_amount).toLocaleString('en-IN', {minimumFractionDigits:2}) : '—' },
         { label: 'Status', render: d => `<span class="st-${d.status}" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;">${esc(d.status)}</span>` },
         { label: 'Uploaded', render: d => formatDate(d.created_at) },
+        { label: '', render: d => d.deleted_at ? '' : `<span style="cursor:pointer;color:var(--text-muted);font-size:14px;" title="Delete" onclick="event.stopPropagation();rowDelete(${d.id},'${d.status}')">🗑</span>` },
       ]
     });
+
+    async function rowDelete(id, status) {
+      const isPushed = status === 'pushed';
+      const msg = isPushed
+        ? 'This was pushed to Tally. Deleting here only archives the CRM record — it will NOT remove the voucher from Tally. Continue?'
+        : 'Delete this record permanently?';
+      if (!confirm(msg)) return;
+      try {
+        const r = await api(`/api/invoices/${id}`, { method: 'DELETE' });
+        showToast(r.soft ? 'Archived (was in Tally)' : 'Deleted');
+        loadDocs();
+      } catch (e) {}
+    }
 
     function setFilter(s) {
       statusFilter = s;
@@ -209,23 +343,33 @@
     ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
     dz.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
 
+    let _procPoll = null;        // active polling interval
+    let _procDismissed = false;  // user chose "continue in background"
+
+    function dismissProc() {
+      _procDismissed = true;
+      document.getElementById('procOverlay').classList.remove('open');
+      // polling continues in the background so loadDocs refreshes when done
+    }
+
     async function handleFiles(files) {
       const file = files[0];
       if (!file) return;
       if (file.type !== 'application/pdf') { showToast('Only PDF files are supported', 'error'); return; }
+
+      // Lock the dropzone — one at a time
       dz.classList.add('busy');
-      document.getElementById('dzTitle').textContent = `Reading ${file.name}… (this can take up to a minute)`;
+      document.getElementById('dzTitle').textContent = `Uploading ${file.name}…`;
       const fd = new FormData(); fd.append('pdf', file);
+
       try {
         const res = await fetch('/api/invoices/upload', { method: 'POST', body: fd });
         const data = await res.json();
-        if (!res.ok) {
-          const isRate = (data.error || '').includes('RATE_LIMIT');
-          throw new Error(isRate ? 'OpenRouter limit hit — try again shortly' : (data.error || 'Upload failed'));
-        }
-        showToast('Document read — review it before approving');
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+        // Upload returned instantly with a 'reading' row — show overlay + poll
         loadDocs();
-        if (data.invoiceId) openReview(data.invoiceId);
+        startProcessing(data.invoiceId, file.name);
       } catch (e) {
         showToast(e.message || 'Upload failed', 'error');
       } finally {
@@ -233,6 +377,45 @@
         document.getElementById('dzTitle').textContent = 'Drop a PDF here, or click to browse';
         document.getElementById('fileInput').value = '';
       }
+    }
+
+    function startProcessing(invoiceId, fileName) {
+      _procDismissed = false;
+      document.getElementById('procFile').textContent = fileName;
+      document.getElementById('procOverlay').classList.add('open');
+      if (_procPoll) clearInterval(_procPoll);
+
+      let elapsed = 0;
+      _procPoll = setInterval(async () => {
+        elapsed += 2;
+        let s;
+        try { s = await fetch(`/api/invoices/${invoiceId}/status`).then(r => r.json()); }
+        catch (e) { return; } // transient network blip — keep polling
+
+        if (s.status === 'reading') {
+          if (elapsed >= 180) { // safety: shouldn't outlast server reaper
+            stopProcessing(); loadDocs();
+            showToast('Still processing — check back shortly', 'error');
+          }
+          return;
+        }
+
+        stopProcessing();
+        loadDocs();
+        if (s.status === 'extract_failed') {
+          showToast(`Couldn't read it${s.extract_error ? ' — ' + s.extract_error : ''}`, 'error');
+        } else if (!_procDismissed) {
+          showToast('Document read — review it before approving');
+          openReview(invoiceId);
+        } else {
+          showToast('Document ready to review');
+        }
+      }, 2000);
+    }
+
+    function stopProcessing() {
+      if (_procPoll) { clearInterval(_procPoll); _procPoll = null; }
+      document.getElementById('procOverlay').classList.remove('open');
     }
 
     // ===== Review / Edit panel =====
@@ -274,6 +457,26 @@
       try {
         const inv = await api(`/api/invoices/${id}`);
         _rvInv = inv;
+
+        // Non-reviewable states get a short message instead of the edit form
+        if (inv.status === 'reading') {
+          document.getElementById('rvDocNo').textContent = inv.original_filename || 'Reading…';
+          const st = document.getElementById('rvStatus'); st.textContent = 'reading'; st.className = 'rv-status pending';
+          document.getElementById('rvBody').innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Still reading this document — check back in a moment.</div>';
+          document.getElementById('rvFoot').innerHTML = `<button class="rv-btn-save" onclick="closeReview()">Close</button>`;
+          return;
+        }
+        if (inv.status === 'extract_failed') {
+          document.getElementById('rvDocNo').textContent = inv.original_filename || 'Failed';
+          const st = document.getElementById('rvStatus'); st.textContent = 'failed'; st.className = 'rv-status rejected';
+          document.getElementById('rvBody').innerHTML = `<div style="color:var(--danger);font-size:13px;">Extraction failed${inv.extract_error ? ' — ' + esc(inv.extract_error) : ''}.</div>
+            <div style="color:var(--text-muted);font-size:12px;margin-top:8px;">Re-upload the PDF to try again, or delete this record.</div>`;
+          document.getElementById('rvFoot').innerHTML =
+            `<button class="rv-btn-reject" onclick="rvDelete()">Delete</button>
+             <button class="rv-btn-save" onclick="closeReview()">Close</button>`;
+          return;
+        }
+
         _rvLocked = inv.status !== 'pending';
         _rvLines = Array.isArray(inv.line_items) ? JSON.parse(JSON.stringify(inv.line_items)) : [];
         _rvCustom = [];
@@ -282,7 +485,12 @@
         const st = document.getElementById('rvStatus');
         st.textContent = inv.status; st.className = `rv-status ${inv.status}`;
 
-        document.getElementById('rvBody').innerHTML = `
+        const pushBanner =
+          inv.status === 'pushed' ? `<div class="po-existing-item" style="border-color:var(--primary);margin-bottom:14px;"><div><div class="code" style="color:var(--primary);">Pushed to Tally</div><div class="desc">${inv.pushed_at ? formatDateTime(inv.pushed_at) : ''}</div></div></div>` :
+          inv.status === 'push_failed' ? `<div class="po-existing-item" style="border-color:var(--danger);margin-bottom:14px;"><div><div class="code" style="color:var(--danger);">Tally push failed${inv.push_error ? ' — ' + esc(inv.push_error) : ''}</div><div class="desc">The local agent will retry, or delete this record.</div></div></div>` : '';
+
+        document.getElementById('rvBody').innerHTML = pushBanner + `
+          <div id="rvChecks"></div>
           <div class="rv-field"><label>Document Type</label><input id="rv_doc_type" value="${esc(inv.doc_type||'')}" ${_rvLocked?'disabled':''}></div>
           <div class="rv-section-label">Core fields</div>
           <div class="rv-grid">${FIELD_DEFS.map(f => fld(f, inv[f.k])).join('')}</div>
@@ -300,19 +508,37 @@
           </div>`}
         `;
         renderLines(); renderCustom();
+        if (inv.status === 'pending') loadChecks(inv.id);
 
         const foot = document.getElementById('rvFoot');
         if (inv.status === 'pending') {
           foot.innerHTML = `
+            <button class="rv-btn-reject" onclick="rvDelete()" title="Delete">🗑</button>
             <button class="rv-btn-reject" onclick="rvReject()">Reject</button>
             <button class="rv-btn-save" onclick="rvSave(false)">Save</button>
             <button class="rv-btn-approve" onclick="rvApprove()">Approve → Tally</button>`;
+        } else if (inv.status === 'push_failed') {
+          foot.innerHTML = `
+            <button class="rv-btn-reject" onclick="rvDelete()">Delete</button>
+            <button class="rv-btn-save" onclick="closeReview()">Close (push failed)</button>`;
         } else {
-          foot.innerHTML = `<button class="rv-btn-save" onclick="closeReview()">Close (${esc(inv.status)})</button>`;
+          foot.innerHTML = `
+            <button class="rv-btn-reject" onclick="rvDelete()">Delete</button>
+            <button class="rv-btn-save" onclick="closeReview()">Close (${esc(inv.status)})</button>`;
         }
       } catch (e) {
         document.getElementById('rvBody').innerHTML = '<div style="color:var(--danger)">Failed to load.</div>';
       }
+    }
+
+    async function openManual(docType) {
+      // create a blank pending record, then open the panel on it
+      try {
+        const res = await api('/api/invoices/manual', { method: 'POST', body: { doc_type: docType } });
+        showToast('Blank document created — fill it in');
+        loadDocs();
+        if (res.invoiceId) openReview(res.invoiceId);
+      } catch (e) { showToast('Could not create', 'error'); }
     }
 
     function renderLines() {
@@ -355,6 +581,30 @@
       return body;
     }
 
+    async function loadChecks(id) {
+      const box = document.getElementById('rvChecks');
+      if (!box) return;
+      let c;
+      try { c = await fetch(`/api/invoices/${id}/checks`).then(r => r.json()); }
+      catch (e) { return; }
+
+      let html = '';
+      if (c.duplicates && c.duplicates.length) {
+        const links = c.duplicates.map(d =>
+          `<span style="cursor:pointer;color:var(--primary);text-decoration:underline;" onclick="openReview(${d.id})">${esc(d.invoice_no||('#'+d.id))}</span> <span style="color:var(--text-muted);">(${esc(d.status)})</span>`
+        ).join(', ');
+        html += `<div class="po-existing-item" style="border-color:var(--warning);margin-bottom:8px;">
+          <div><div class="code" style="color:var(--warning);">Possible duplicate</div>
+          <div class="desc">Same supplier &amp; invoice no already exists: ${links}</div></div></div>`;
+      }
+      if (c.unknownLedgers && c.unknownLedgers.length) {
+        html += `<div class="po-existing-item" style="border-color:var(--danger);margin-bottom:8px;">
+          <div><div class="code" style="color:var(--danger);">Ledger not in Tally</div>
+          <div class="desc">These won't import until created in Tally: ${c.unknownLedgers.map(esc).join(', ')}</div></div></div>`;
+      }
+      box.innerHTML = html;
+    }
+
     async function rvSave(silent) {
       if (!_rvInv) return;
       await api(`/api/invoices/${_rvInv.id}`, { method: 'PUT', body: collectReview() });
@@ -372,8 +622,268 @@
       await api(`/api/invoices/${_rvInv.id}/reject`, { method: 'POST', body: {} });
       showToast('Rejected'); closeReview(); loadDocs();
     }
-    function closeReview() { document.getElementById('reviewPanel').classList.remove('open'); _rvInv = null; }
+    async function rvDelete() {
+      if (!_rvInv) return;
+      const isPushed = _rvInv.status === 'pushed';
+      const msg = isPushed
+        ? 'This was pushed to Tally. Deleting here only archives the CRM record — it will NOT remove the voucher from Tally. Continue?'
+        : 'Delete this record permanently?';
+      if (!confirm(msg)) return;
+      try {
+        const r = await api(`/api/invoices/${_rvInv.id}`, { method: 'DELETE' });
+        showToast(r.soft ? 'Archived (was in Tally)' : 'Deleted');
+        closeReview(); loadDocs();
+      } catch (e) {}
+    }
+
+    function closeReview() { document.getElementById('reviewPanel').classList.remove('open'); _rvInv = null; _poMode = false; }
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReview(); });
+
+    // ===================== PURCHASE ORDERS TAB =====================
+    let _poCompanies = [], _poItems = [], _poUser = null, _poMode = false;
+
+    function setTab(tab) {
+      document.querySelectorAll('.docs-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      document.getElementById('pane-documents').classList.toggle('active', tab === 'documents');
+      document.getElementById('pane-po').classList.toggle('active', tab === 'po');
+      if (tab === 'po' && !_poInit) initPO();
+    }
+
+    const PO_STATUS = { draft:'Draft', confirmed:'Confirmed', dispatched:'Dispatched', cancelled:'Cancelled' };
+
+    const poTable = new PaginatedTable({
+      containerId: 'poTable-container',
+      pageSize: 10,
+      titleText: 'Purchase Orders',
+      columns: [
+        { label: 'PO Number', render: p => `<strong style="cursor:pointer;color:var(--primary);" onclick="openPO(${p.id})">${esc(p.po_number)}</strong>` + (p.po_source==='system'?' <span class="po-source-tag">SYS</span>':'') },
+        { label: 'Company', render: p => esc(p.company_name) || '—' },
+        { label: 'Contact', render: p => esc(p.poc_name) || '—' },
+        { label: 'Status', render: p => `<span class="po-badge ${p.status}">${esc(PO_STATUS[p.status]||p.status)}</span>` },
+        { label: 'Order Date', render: p => formatDate(p.order_date) },
+        { label: 'Exp. Dispatch', render: p => formatDate(p.expected_dispatch_date) },
+      ]
+    });
+
+    let _poInit = false;
+    async function initPO() {
+      _poInit = true;
+      _poUser = await fetch('/api/auth/me').then(r => r.json()).catch(() => null);
+      try {
+        [_poCompanies, _poItems] = await Promise.all([ api('/api/po/companies'), api('/api/po/items') ]);
+        document.getElementById('poFCompany').innerHTML +=
+          _poCompanies.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+      } catch (e) {}
+      loadPOs();
+    }
+
+    async function loadPOs() {
+      const params = new URLSearchParams();
+      const s = document.getElementById('poFStatus').value;
+      const c = document.getElementById('poFCompany').value;
+      if (s !== 'all') params.set('status', s);
+      if (c) params.set('company_id', c);
+      try { poTable.load(await api(`/api/po?${params}`)); } catch (e) {}
+    }
+
+    // ---------- PO panel state ----------
+    let _po = null;          // loaded PO when editing
+    let _poNewLines = [];     // line items when creating
+    let _poEditable = false;
+
+    function poItemOptions(sel) {
+      return `<option value="">— Item —</option>` +
+        _poItems.map(i => `<option value="${esc(i.item_code)}" ${i.item_code===sel?'selected':''}>${esc(i.item_code)} — ${esc(i.description||'')}</option>`).join('');
+    }
+    function poCompanyOptions(sel) {
+      return `<option value="">— Select company —</option>` +
+        _poCompanies.map(c => `<option value="${c.id}" ${c.id==sel?'selected':''}>${esc(c.name)}</option>`).join('');
+    }
+
+    // ----- CREATE -----
+    function openPONew() {
+      _po = null; _poMode = true; _poNewLines = [{ item_code:'', qty:'', price:'' }];
+      const panel = document.getElementById('reviewPanel'); panel.classList.add('open');
+      document.getElementById('rvDocNo').textContent = 'New Purchase Order';
+      const st = document.getElementById('rvStatus'); st.textContent = 'draft'; st.className = 'rv-status pending';
+      document.getElementById('rvBody').innerHTML = `
+        <div class="rv-field"><label>PO Number <span class="req">*</span></label>
+          <input id="po_number" placeholder="e.g. PO-2024-001"></div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:12px;">
+          <input type="checkbox" id="po_gen" onchange="poToggleGen()"> Auto-generate (SYS-XXX)</label>
+        <div class="rv-field"><label>Company <span class="req">*</span></label>
+          <select id="po_company" onchange="poLoadContacts(this.value)" style="width:100%;font-family:var(--font);font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 10px;">${poCompanyOptions()}</select></div>
+        <div class="rv-field"><label>Contact (optional)</label>
+          <select id="po_contact" style="width:100%;font-family:var(--font);font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 10px;"><option value="">— Select contact —</option></select></div>
+        <div class="rv-grid">
+          <div class="rv-field"><label>Order Date</label><input type="date" id="po_order_date"></div>
+          <div class="rv-field"><label>Expected Dispatch</label><input type="date" id="po_exp_dispatch"></div>
+        </div>
+        <div class="rv-field"><label>Notes</label><input id="po_notes" placeholder="Any remarks"></div>
+        <div class="rv-section-label">Line items</div>
+        <div class="po-item-row head"><span>Item</span><span>Qty</span><span>Unit ₹</span><span></span></div>
+        <div id="poNewLines"></div>
+        <button class="rv-line-add" onclick="poAddLine()">+ Add item</button>
+      `;
+      poRenderNewLines();
+      document.getElementById('rvFoot').innerHTML =
+        `<button class="rv-btn-save" onclick="closeReview()">Cancel</button>
+         <button class="rv-btn-approve" onclick="poCreate()">Create PO</button>`;
+    }
+    function poToggleGen() {
+      const gen = document.getElementById('po_gen').checked;
+      const inp = document.getElementById('po_number');
+      inp.disabled = gen; if (gen) inp.value = '';
+      inp.placeholder = gen ? 'Auto SYS-XXX' : 'e.g. PO-2024-001';
+    }
+    async function poLoadContacts(companyId) {
+      const el = document.getElementById('po_contact');
+      el.innerHTML = '<option value="">— Select contact —</option>';
+      if (!companyId) return;
+      try {
+        const contacts = await api(`/api/clients?company_id=${companyId}`);
+        el.innerHTML += contacts.map(c => `<option value="${c.id}">${esc(c.poc_name)}</option>`).join('');
+      } catch (e) {}
+    }
+    function poRenderNewLines() {
+      document.getElementById('poNewLines').innerHTML = _poNewLines.map((l, i) => `
+        <div class="po-item-row">
+          <select onchange="_poNewLines[${i}].item_code=this.value">${poItemOptions(l.item_code)}</select>
+          <input type="number" min="1" placeholder="Qty" value="${esc(l.qty)}" oninput="_poNewLines[${i}].qty=this.value">
+          <input type="number" step="0.01" placeholder="₹" value="${esc(l.price)}" oninput="_poNewLines[${i}].price=this.value">
+          <button class="x" onclick="poDelLine(${i})">✕</button>
+        </div>`).join('');
+    }
+    function poAddLine() { _poNewLines.push({ item_code:'', qty:'', price:'' }); poRenderNewLines(); }
+    function poDelLine(i) { _poNewLines.splice(i,1); poRenderNewLines(); }
+
+    async function poCreate() {
+      const gen = document.getElementById('po_gen').checked;
+      const company_id = document.getElementById('po_company').value;
+      if (!company_id) return showToast('Select a company', 'error');
+      const po_number = document.getElementById('po_number').value.trim();
+      if (!gen && !po_number) return showToast('Enter a PO number or auto-generate', 'error');
+      const items = _poNewLines
+        .filter(l => l.item_code && parseInt(l.qty) > 0)
+        .map(l => ({ item_code: l.item_code, quantity_ordered: parseInt(l.qty), unit_price: parseFloat(l.price) || null }));
+      try {
+        const r = await api('/api/po', { method: 'POST', body: {
+          generate_number: gen,
+          po_number: gen ? undefined : po_number,
+          company_id: parseInt(company_id),
+          contact_id: parseInt(document.getElementById('po_contact').value) || null,
+          order_date: document.getElementById('po_order_date').value || null,
+          expected_dispatch_date: document.getElementById('po_exp_dispatch').value || null,
+          notes: document.getElementById('po_notes').value.trim() || null,
+          items
+        }});
+        showToast(`${r.po_number} created`);
+        closeReview(); loadPOs();
+      } catch (e) {}
+    }
+
+    // ----- VIEW / EDIT -----
+    async function openPO(id) {
+      _poMode = true;
+      const panel = document.getElementById('reviewPanel'); panel.classList.add('open');
+      document.getElementById('rvBody').innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Loading…</div>';
+      document.getElementById('rvFoot').innerHTML = '';
+      try {
+        const po = await api(`/api/po/${id}`);
+        _po = po; _poEditable = ['draft','confirmed'].includes(po.status);
+        document.getElementById('rvDocNo').innerHTML = esc(po.po_number) + (po.po_source==='system'?' <span class="po-source-tag">SYS</span>':'');
+        const st = document.getElementById('rvStatus'); st.textContent = po.status;
+        st.className = 'rv-status ' + (po.status==='draft'?'pending':po.status==='confirmed'?'pushed':po.status==='dispatched'?'approved':'rejected');
+        const dis = _poEditable ? '' : 'disabled';
+
+        document.getElementById('rvBody').innerHTML = `
+          <div style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">${esc(po.company_name||'')}${po.poc_name?' · '+esc(po.poc_name):''}</div>
+          <div class="rv-grid">
+            <div class="rv-field"><label>Order Date</label><input type="date" id="po_order_date" value="${po.order_date||''}" ${dis}></div>
+            <div class="rv-field"><label>Expected Dispatch</label><input type="date" id="po_exp_dispatch" value="${po.expected_dispatch_date||''}" ${dis}></div>
+          </div>
+          ${po.dispatch_date ? `<div class="rv-field"><label>Dispatched On</label><input value="${formatDate(po.dispatch_date)}" disabled></div>` : ''}
+          <div class="rv-field"><label>Notes</label><input id="po_notes" value="${esc(po.notes||'')}" ${dis}></div>
+          <div class="rv-section-label">Line items (${po.items.length})</div>
+          <div id="poExistingItems">
+            ${po.items.length ? po.items.map(i => `
+              <div class="po-existing-item">
+                <div><div class="code">${esc(i.item_code)}</div><div class="desc">${esc(i.description)||'—'}</div></div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:13px;font-weight:700;">×${i.quantity_ordered}${i.unit_price?' · ₹'+i.unit_price:''}</span>
+                  ${_poEditable ? `<button class="x" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;" onclick="poRemoveItem(${po.id},${i.id})">✕</button>` : ''}
+                </div>
+              </div>`).join('') : '<div style="color:var(--text-muted);font-size:12px;">No items yet</div>'}
+          </div>
+          ${_poEditable ? `
+            <div class="po-item-row" style="margin-top:8px;">
+              <select id="po_add_item">${poItemOptions('')}</select>
+              <input type="number" id="po_add_qty" min="1" placeholder="Qty">
+              <input type="number" id="po_add_price" step="0.01" placeholder="₹">
+              <button class="x" style="color:var(--primary);font-size:18px;" onclick="poAddItem(${po.id})">+</button>
+            </div>` : ''}
+          <div class="po-existing-item" style="margin-top:14px;">
+            <div class="desc">Outward dispatches linked</div>
+            <span style="font-size:18px;font-weight:800;">${po.outward_count}</span>
+          </div>
+        `;
+
+        const foot = document.getElementById('rvFoot');
+        const canCancel = _poUser && ['admin','manager'].includes(_poUser.role) && po.status!=='dispatched' && po.status!=='cancelled';
+        let btns = '';
+        if (po.status === 'draft') {
+          btns += `<button class="rv-btn-save" onclick="poSave(${po.id})">Save</button>
+                   <button class="rv-btn-confirm" onclick="poConfirm(${po.id})">Confirm PO</button>`;
+        } else if (po.status === 'confirmed') {
+          btns += `<button class="rv-btn-save" onclick="poSave(${po.id})">Save</button>
+                   <button class="rv-btn-dispatch" onclick="poDispatch(${po.id})">Mark Dispatched</button>`;
+        } else {
+          btns += `<button class="rv-btn-save" onclick="closeReview()">Close (${esc(po.status)})</button>`;
+        }
+        if (canCancel) btns = `<button class="rv-btn-reject" onclick="poCancel(${po.id})">Cancel</button>` + btns;
+        foot.innerHTML = btns;
+      } catch (e) {
+        document.getElementById('rvBody').innerHTML = '<div style="color:var(--danger)">Failed to load.</div>';
+      }
+    }
+
+    async function poSave(id) {
+      try {
+        await api(`/api/po/${id}`, { method: 'PATCH', body: {
+          order_date: document.getElementById('po_order_date').value || null,
+          expected_dispatch_date: document.getElementById('po_exp_dispatch').value || null,
+          notes: document.getElementById('po_notes').value.trim() || null
+        }});
+        showToast('Saved'); openPO(id); loadPOs();
+      } catch (e) {}
+    }
+    async function poAddItem(id) {
+      const item_code = document.getElementById('po_add_item').value;
+      const qty = parseInt(document.getElementById('po_add_qty').value);
+      if (!item_code || !qty) return showToast('Select item and quantity', 'error');
+      try {
+        await api(`/api/po/${id}/items`, { method: 'POST', body: {
+          item_code, quantity_ordered: qty,
+          unit_price: parseFloat(document.getElementById('po_add_price').value) || null
+        }});
+        showToast('Item added'); openPO(id);
+      } catch (e) {}
+    }
+    async function poRemoveItem(id, itemId) {
+      try { await api(`/api/po/${id}/items/${itemId}`, { method: 'DELETE' }); showToast('Item removed'); openPO(id); } catch (e) {}
+    }
+    async function poConfirm(id) {
+      try { await api(`/api/po/${id}/confirm`, { method: 'POST' }); showToast('PO confirmed'); openPO(id); loadPOs(); } catch (e) {}
+    }
+    async function poDispatch(id) {
+      const date = document.getElementById('po_exp_dispatch').value;
+      if (!date) return showToast('Set an expected dispatch date first, or enter today', 'error');
+      try { await api(`/api/po/${id}/dispatch`, { method: 'POST', body: { dispatch_date: date } }); showToast('PO dispatched'); closeReview(); loadPOs(); } catch (e) {}
+    }
+    async function poCancel(id) {
+      if (!confirm('Cancel this PO? This cannot be undone.')) return;
+      try { await api(`/api/po/${id}/cancel`, { method: 'POST' }); showToast('PO cancelled'); closeReview(); loadPOs(); } catch (e) {}
+    }
 
     loadDocs();
   </script>

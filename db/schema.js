@@ -129,6 +129,20 @@ async function initDB() {
 
   try { await db.execute(`ALTER TABLE crm_tasks ADD COLUMN invoice_id INTEGER REFERENCES crm_invoices(id) ON DELETE SET NULL`); } catch (e) {}
 
+  // Talk2Tally: async extraction + delete + push-error tracking
+  try { await db.execute(`ALTER TABLE crm_invoices ADD COLUMN deleted_at DATETIME`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE crm_invoices ADD COLUMN push_error TEXT`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE crm_invoices ADD COLUMN extract_error TEXT`); } catch (e) {}
+
+  // Read-intelligence: snapshot of real Tally ledgers, synced up by the local agent.
+  // CRM reads this to validate ledger names before approval. Empty until the agent populates it.
+  await db.execute(`CREATE TABLE IF NOT EXISTS crm_tally_ledgers (
+    name        TEXT PRIMARY KEY,
+    parent      TEXT,
+    closing_balance TEXT,
+    synced_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_invoices_status ON crm_invoices(status)`);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON crm_invoices(invoice_date)`);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_tasks_invoice ON crm_tasks(invoice_id)`);

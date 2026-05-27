@@ -68,7 +68,6 @@ function requireLogin(req, res, next) {
   app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'dashboard.html')));
   app.get('/clients', (req, res) => res.sendFile(path.join(__dirname, 'views', 'clients.html')));
   app.get('/settings', (req, res) => res.sendFile(path.join(__dirname, 'views', 'settings.html')));
-  app.get('/po', (req, res) => res.sendFile(path.join(__dirname, 'views', 'po.html')));
   app.get('/docs', (req, res) => res.sendFile(path.join(__dirname, 'views', 'docs.html')));
 
   // API
