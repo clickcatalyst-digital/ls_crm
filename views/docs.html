@@ -233,6 +233,12 @@
         <button class="doc-filter" data-status="pushed" onclick="setFilter('pushed')">Pushed</button>
         <button class="doc-filter" data-status="rejected" onclick="setFilter('rejected')">Rejected</button>
         <button class="doc-filter" data-status="deleted" onclick="setFilter('deleted')">Deleted</button>
+        <button class="doc-filter" style="margin-left:auto;" onclick="bulkSelectAll()">☑ Select page</button>
+      </div>
+      <div id="bulkBar" style="display:none;align-items:center;gap:12px;margin-bottom:12px;padding:8px 12px;background:color-mix(in srgb, var(--primary) 8%, var(--bg));border:1px solid var(--primary);border-radius:var(--radius);">
+        <span id="bulkCount" style="font-size:12px;font-weight:700;color:var(--text);"></span>
+        <button class="rv-add-btn" style="border-style:solid;border-color:var(--danger);color:var(--danger);" onclick="bulkDelete()">Delete selected</button>
+        <button class="rv-add-btn" onclick="bulkClear()">Clear</button>
       </div>
       <div id="docsTable-container"></div>
     </div>
@@ -303,6 +309,7 @@
       pageSize: 15,
       titleText: 'Documents',
       columns: [
+        { label: '', render: d => `<input type="checkbox" class="bulk-cb" value="${d.id}" data-status="${d.status}" onclick="event.stopPropagation();onBulkToggle()" style="cursor:pointer;width:15px;height:15px;">` },
         { label: 'Document', render: d => `<strong style="cursor:pointer;color:var(--primary);" onclick="openReview(${d.id})">${esc(d.invoice_no || d.original_filename || 'Untitled')}</strong>` },
         { label: 'Type', render: d => `<span class="doc-type-tag">${esc(DOC_TYPE_LABEL[d.doc_type] || d.doc_type || '—')}</span>` },
         { label: 'Party', render: d => esc(d.party_name) || '—' },
@@ -312,6 +319,57 @@
         { label: '', render: d => d.deleted_at ? '' : `<span style="cursor:pointer;color:var(--text-muted);font-size:14px;" title="Delete" onclick="event.stopPropagation();rowDelete(${d.id},'${d.status}')">🗑</span>` },
       ]
     });
+
+    function getBulkBoxes() { return [...document.querySelectorAll('.bulk-cb')]; }
+
+    function onBulkToggle() {
+      const checked = getBulkBoxes().filter(cb => cb.checked);
+      const bar = document.getElementById('bulkBar');
+      if (checked.length) {
+        bar.style.display = 'flex';
+        document.getElementById('bulkCount').textContent = `${checked.length} selected`;
+      } else {
+        bar.style.display = 'none';
+      }
+    }
+
+    function bulkSelectAll() {
+      const boxes = getBulkBoxes();
+      const allChecked = boxes.length && boxes.every(cb => cb.checked);
+      boxes.forEach(cb => { cb.checked = !allChecked; });
+      onBulkToggle();
+    }
+
+    function bulkClear() {
+      getBulkBoxes().forEach(cb => { cb.checked = false; });
+      onBulkToggle();
+    }
+
+    async function bulkDelete() {
+      const checked = getBulkBoxes().filter(cb => cb.checked);
+      if (!checked.length) return;
+      const hasPushed = checked.some(cb => cb.dataset.status === 'pushed');
+      const msg = hasPushed
+        ? `Delete ${checked.length} record(s)? Some were pushed to Tally and will be ARCHIVED (not removed from Tally); the rest will be permanently deleted. Continue?`
+        : `Permanently delete ${checked.length} record(s)?`;
+      if (!confirm(msg)) return;
+
+      let archived = 0, deleted = 0, failed = 0;
+      // Sequential — Turso is happier without a burst of parallel writes
+      for (const cb of checked) {
+        try {
+          const r = await api(`/api/invoices/${cb.value}`, { method: 'DELETE' });
+          r.soft ? archived++ : deleted++;
+        } catch (e) { failed++; }
+      }
+      let summary = [];
+      if (deleted)  summary.push(`${deleted} deleted`);
+      if (archived) summary.push(`${archived} archived`);
+      if (failed)   summary.push(`${failed} failed`);
+      showToast(summary.join(', ') || 'Done', failed ? 'error' : 'success');
+      bulkClear();
+      loadDocs();
+    }
 
     async function rowDelete(id, status) {
       const isPushed = status === 'pushed';
