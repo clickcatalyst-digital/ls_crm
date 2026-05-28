@@ -64,13 +64,14 @@
     .rv-field { margin-bottom: 12px; }
     .rv-field label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 4px; }
     .rv-field label .req { color: var(--danger); }
-    .rv-field input, .rv-field textarea {
+    .rv-field input, .rv-field select, .rv-field textarea {
       width: 100%; box-sizing: border-box; font-family: var(--font); font-size: 13px;
       background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
       color: var(--text); padding: 7px 10px;
     }
-    .rv-field input:focus, .rv-field textarea:focus { outline: none; border-color: var(--primary); }
-    .rv-field input:disabled { opacity: 0.6; cursor: not-allowed; }
+    .rv-field input:focus, .rv-field select:focus, .rv-field textarea:focus { outline: none; border-color: var(--primary); }
+    .rv-field input:disabled, .rv-field select:disabled { opacity: 0.6; cursor: not-allowed; }
+
     .rv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
     .rv-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
     .rv-add-row { display: flex; gap: 8px; margin-top: 8px; }
@@ -550,6 +551,27 @@
         document.getElementById('rvBody').innerHTML = pushBanner + `
           <div id="rvChecks"></div>
           <div class="rv-field"><label>Document Type</label><input id="rv_doc_type" value="${esc(inv.doc_type||'')}" ${_rvLocked?'disabled':''}></div>
+          <div class="rv-section-label">Tally routing</div>
+          <div class="rv-grid">
+            <div class="rv-field">
+              <label>Bank Account <span style="font-size:9px;font-weight:400;color:var(--text-muted);">bank_statement</span></label>
+              <select id="rv_bank_ledger" ${_rvLocked?'disabled':''}>
+                <option value="South Indian Bank" ${(!inv.bank_ledger||inv.bank_ledger==='South Indian Bank')?'selected':''}>South Indian Bank</option>
+                <option value="DB BANK" ${inv.bank_ledger==='DB BANK'?'selected':''}>DB BANK</option>
+                <option value="ICICI Bank" ${inv.bank_ledger==='ICICI Bank'?'selected':''}>ICICI Bank</option>
+                <option value="Cash" ${inv.bank_ledger==='Cash'?'selected':''}>Cash</option>
+              </select>
+            </div>
+            <div class="rv-field">
+              <label>Purchase Ledger <span style="font-size:9px;font-weight:400;color:var(--text-muted);">purchase_invoice</span></label>
+              <select id="rv_purchase_ledger" ${_rvLocked?'disabled':''}>
+                <option value="" ${!inv.purchase_ledger?'selected':''}>Auto (CGST+SGST → Local, IGST → Intra)</option>
+                <option value="GST LOCAL PURCHASE 18%" ${inv.purchase_ledger==='GST LOCAL PURCHASE 18%'?'selected':''}>GST LOCAL PURCHASE 18%</option>
+                <option value="GST INTRA STATE PURCHASE 18%" ${inv.purchase_ledger==='GST INTRA STATE PURCHASE 18%'?'selected':''}>GST INTRA STATE PURCHASE 18%</option>
+                <option value="GST Import Purchase 18%" ${inv.purchase_ledger==='GST Import Purchase 18%'?'selected':''}>GST Import Purchase 18%</option>
+              </select>
+            </div>
+          </div>
           <div class="rv-section-label">Core fields</div>
           <div class="rv-grid">${FIELD_DEFS.map(f => fld(f, inv[f.k])).join('')}</div>
           <div class="rv-section-label">Freight / extra (optional)</div>
@@ -632,8 +654,8 @@
 
     function collectReview() {
       const body = { line_items: _rvLines };
-      document.querySelectorAll('#rvBody input[id^="rv_"]').forEach(inp => {
-        body[inp.id.replace('rv_','')] = inp.value.trim();
+      document.querySelectorAll('#rvBody input[id^="rv_"], #rvBody select[id^="rv_"]').forEach(inp => {
+        body[inp.id.replace('rv_','')] = inp.value.trim ? inp.value.trim() : inp.value;
       });
       if (_rvCustom.length) body.review_notes = 'Custom: ' + JSON.stringify(_rvCustom);
       return body;
