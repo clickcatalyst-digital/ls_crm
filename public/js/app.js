@@ -17,7 +17,7 @@ async function api(url, options = {}) {
 }
 
 // ========== TOAST NOTIFICATIONS ==========
-function showToast(message, type = 'success') {
+function showToast(message, type = 'success', duration = 5000) { 
   let toast = document.getElementById('toast');
   if (!toast) {
     toast = document.createElement('div');
@@ -28,7 +28,11 @@ function showToast(message, type = 'success') {
   toast.textContent = message;
   toast.style.background = type === 'error' ? '#dc2626' : '#1a1a18';
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3000);
+  
+  // Clear any existing timeouts so they don't overlap
+  if (toast.hideTimeout) clearTimeout(toast.hideTimeout);
+  
+  toast.hideTimeout = setTimeout(() => toast.classList.remove('show'), duration); // <-- uses duration
 }
 
 // ========== DATE FORMATTING ==========
@@ -84,11 +88,26 @@ document.addEventListener('DOMContentLoaded', () => {
   injectSettingsLink();
 });
 
-// Show Settings in the cog dropdown only for admins/managers
+// Show Settings in the cog dropdown only for admins/managers AND show Welcome Toast
 async function injectSettingsLink() {
   try {
     const user = await fetch('/api/auth/me').then(r => r.json()).catch(() => null);
-    if (!user || !['admin', 'manager'].includes(user.role)) return;
+    if (!user) return; // Stop if not logged in
+
+    // --- WELCOME TOAST (Shows on EVERY refresh) ---
+    const name = capitalize(user.username); // Using your existing capitalize function!
+    const hour = new Date().getHours();
+    let greeting = 'Good evening';
+    
+    if (hour < 12) greeting = 'Good morning';
+    else if (hour < 17) greeting = 'Good afternoon';
+
+    showToast(`${greeting}, ${name}!`);
+    // ----------------------------------------------
+
+    // If they aren't admin/manager, stop here (they still got the toast though!)
+    if (!['admin', 'manager'].includes(user.role)) return;
+
     const cog = document.getElementById('cogDropdown');
     if (!cog || cog.dataset.settingsInjected) return;
     cog.dataset.settingsInjected = 'true';
