@@ -210,18 +210,25 @@ function staticVarsTag() {
     : '';
 }
 
+function xmlEscape(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function entry(ledgerName, isDebit, amount, isParty = false, billRef = null) {
   const absAmt = Math.abs(n(amount)).toFixed(2);
   const sign   = isDebit ? '' : '-';
   const bill   = (isParty && billRef)
     ? `\n              <BILLALLOCATIONS.LIST>
-                <NAME>${billRef}</NAME>
+                <NAME>${xmlEscape(billRef)}</NAME>
                 <BILLTYPE>New Ref</BILLTYPE>
                 <AMOUNT>${sign}${absAmt}</AMOUNT>
               </BILLALLOCATIONS.LIST>` : '';
   return `
             <ALLLEDGERENTRIES.LIST>
-              <LEDGERNAME>${ledgerName}</LEDGERNAME>
+              <LEDGERNAME>${xmlEscape(ledgerName)}</LEDGERNAME>
               <ISDEEMEDPOSITIVE>${isDebit ? 'Yes' : 'No'}</ISDEEMEDPOSITIVE>
               ${isParty ? '<ISPARTYLEDGER>Yes</ISPARTYLEDGER>' : ''}
               <AMOUNT>${sign}${absAmt}</AMOUNT>${bill}
@@ -264,9 +271,9 @@ function buildPurchaseXML(inv) {
           <VOUCHER VCHTYPE="Purchase" ACTION="Create"${invoiceNo ? ` REMOTEID="${invoiceNo}"` : ''}>
             <DATE>${date}</DATE>
             <VOUCHERTYPENAME>Purchase</VOUCHERTYPENAME>
-            <VOUCHERNUMBER>${invoiceNo}</VOUCHERNUMBER>
-            <PARTYLEDGERNAME>${party}</PARTYLEDGERNAME>
-            <NARRATION>${narration}</NARRATION>
+            <VOUCHERNUMBER>${xmlEscape(invoiceNo)}</VOUCHERNUMBER>
+            <PARTYLEDGERNAME>${xmlEscape(party)}</PARTYLEDGERNAME>
+            <NARRATION>${xmlEscape(narration)}</NARRATION>
             ${entry(purchaseLedger, true,  taxable)}
             ${cgst > 0 ? entry(CGST_LEDGER, true, cgst) : ''}
             ${sgst > 0 ? entry(SGST_LEDGER, true, sgst) : ''}
@@ -301,9 +308,9 @@ function buildFreightXML(inv) {
           <VOUCHER VCHTYPE="Purchase" ACTION="Create"${invoiceNo ? ` REMOTEID="${invoiceNo}"` : ''}>
             <DATE>${date}</DATE>
             <VOUCHERTYPENAME>Purchase</VOUCHERTYPENAME>
-            <VOUCHERNUMBER>${invoiceNo}</VOUCHERNUMBER>
-            <PARTYLEDGERNAME>${party}</PARTYLEDGERNAME>
-            <NARRATION>${narration}</NARRATION>
+            <VOUCHERNUMBER>${xmlEscape(invoiceNo)}</VOUCHERNUMBER>
+            <PARTYLEDGERNAME>${xmlEscape(party)}</PARTYLEDGERNAME>
+            <NARRATION>${xmlEscape(narration)}</NARRATION>
             ${expenseEntries}
             ${cgst > 0 ? entry(CGST_LEDGER, true, cgst) : ''}
             ${sgst > 0 ? entry(SGST_LEDGER, true, sgst) : ''}
@@ -360,9 +367,9 @@ function buildBOEXML(inv) {
           <VOUCHER VCHTYPE="Purchase" ACTION="Create"${invoiceNo ? ` REMOTEID="${invoiceNo}"` : ''}>
             <DATE>${date}</DATE>
             <VOUCHERTYPENAME>Purchase</VOUCHERTYPENAME>
-            <VOUCHERNUMBER>${invoiceNo}</VOUCHERNUMBER>
-            <PARTYLEDGERNAME>${party}</PARTYLEDGERNAME>
-            <NARRATION>${narration}</NARRATION>
+            <VOUCHERNUMBER>${xmlEscape(invoiceNo)}</VOUCHERNUMBER>
+            <PARTYLEDGERNAME>${xmlEscape(party)}</PARTYLEDGERNAME>
+            <NARRATION>${xmlEscape(narration)}</NARRATION>
             ${expenseEntries}
             ${entry(party, false, net, true, invoiceNo || null)}
           </VOUCHER>
@@ -383,7 +390,7 @@ function buildBankStatementXML(inv) {
       const absAmt  = Math.abs(txnAmt).toFixed(2);
       const isCredit= txnAmt > 0;
       const vchType = isCredit ? 'Receipt' : 'Payment';
-      const narr    = (it.description || `Bank txn ${idx + 1}`).replace(/[<>&"']/g, ' ');
+      const narr    = xmlEscape(it.description || `Bank txn ${idx + 1}`);
       const txnDate = it.date ? fmtDate(it.date) : baseDate;
       const bankLedger    = inv.bank_ledger || BANK_LEDGER;
       const bankEntry     = isCredit
