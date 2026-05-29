@@ -551,31 +551,38 @@
         document.getElementById('rvBody').innerHTML = pushBanner + `
           <div id="rvChecks"></div>
           <div class="rv-field"><label>Document Type</label><input id="rv_doc_type" value="${esc(inv.doc_type||'')}" ${_rvLocked?'disabled':''}></div>
+          ${(inv.doc_type === 'bank_statement' || inv.doc_type === 'purchase_invoice' || inv.doc_type === 'freight_invoice') ? `
           <div class="rv-section-label">Tally routing</div>
           <div class="rv-grid">
-            <div class="rv-field">
-              <label>Bank Account <span style="font-size:9px;font-weight:400;color:var(--text-muted);">bank_statement</span></label>
+            ${inv.doc_type === 'bank_statement' ? `
+            <div class="rv-field" style="grid-column:1/-1;">
+              <label>Bank Account</label>
               <select id="rv_bank_ledger" ${_rvLocked?'disabled':''}>
                 <option value="South Indian Bank" ${(!inv.bank_ledger||inv.bank_ledger==='South Indian Bank')?'selected':''}>South Indian Bank</option>
                 <option value="DB BANK" ${inv.bank_ledger==='DB BANK'?'selected':''}>DB BANK</option>
                 <option value="ICICI Bank" ${inv.bank_ledger==='ICICI Bank'?'selected':''}>ICICI Bank</option>
                 <option value="Cash" ${inv.bank_ledger==='Cash'?'selected':''}>Cash</option>
               </select>
-            </div>
-            <div class="rv-field">
-              <label>Purchase Ledger <span style="font-size:9px;font-weight:400;color:var(--text-muted);">purchase_invoice</span></label>
+            </div>` : ''}
+            ${(inv.doc_type === 'purchase_invoice' || inv.doc_type === 'freight_invoice') ? `
+            <div class="rv-field" style="grid-column:1/-1;">
+              <label>Purchase Ledger</label>
               <select id="rv_purchase_ledger" ${_rvLocked?'disabled':''}>
                 <option value="" ${!inv.purchase_ledger?'selected':''}>Auto (CGST+SGST → Local, IGST → Intra)</option>
                 <option value="GST LOCAL PURCHASE 18%" ${inv.purchase_ledger==='GST LOCAL PURCHASE 18%'?'selected':''}>GST LOCAL PURCHASE 18%</option>
                 <option value="GST INTRA STATE PURCHASE 18%" ${inv.purchase_ledger==='GST INTRA STATE PURCHASE 18%'?'selected':''}>GST INTRA STATE PURCHASE 18%</option>
                 <option value="GST Import Purchase 18%" ${inv.purchase_ledger==='GST Import Purchase 18%'?'selected':''}>GST Import Purchase 18%</option>
               </select>
-            </div>
-          </div>
+            </div>` : ''}
+          </div>` : ''}
+          ${inv.doc_type !== 'bank_statement' ? `
           <div class="rv-section-label">Core fields</div>
-          <div class="rv-grid">${FIELD_DEFS.map(f => fld(f, inv[f.k])).join('')}</div>
-          <div class="rv-section-label">Freight / extra (optional)</div>
-          <div class="rv-grid">${FREIGHT_FIELDS.map(f => fld(f, inv[f.k])).join('')}</div>
+          <div class="rv-grid">${FIELD_DEFS.map(f => fld(f, inv[f.k])).join('')}</div>` : `
+          <div class="rv-section-label">Statement period</div>
+          <div class="rv-field"><label>Statement Date</label><input id="rv_invoice_date" value="${esc(inv.invoice_date ?? '')}" ${_rvLocked?'disabled':''}></div>`}
+          ${(inv.doc_type === 'freight_invoice' || inv.doc_type === 'bill_of_entry') ? `
+          <div class="rv-section-label">Freight / shipment details</div>
+          <div class="rv-grid">${FREIGHT_FIELDS.map(f => fld(f, inv[f.k])).join('')}</div>` : ''}
           <div class="rv-section-label">Line items</div>
           <div id="rvLines"></div>
           ${_rvLocked ? '' : '<button class="rv-line-add" onclick="rvAddLine()">+ Add line item</button>'}
