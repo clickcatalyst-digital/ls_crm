@@ -260,7 +260,7 @@ function buildPurchaseXML(inv) {
   const cgst      = n(inv.cgst);
   const sgst      = n(inv.sgst);
   const igst      = n(inv.igst);
-  const net       = n(inv.net_amount) || (taxable + cgst + sgst + igst);
+  const net       = taxable + cgst + sgst + igst;
   const purchaseLedger = inv.purchase_ledger || (igst > 0 ? PURCHASE_INTRA : PURCHASE_LOCAL);
   const narration = [
     invoiceNo && `Inv: ${invoiceNo}`,
@@ -291,10 +291,13 @@ function buildFreightXML(inv) {
   const cgst      = n(inv.cgst);
   const sgst      = n(inv.sgst);
   const igst      = n(inv.igst);
-  const net       = n(inv.net_amount);
   const items = typeof inv.line_items === 'string'
     ? (() => { try { return JSON.parse(inv.line_items); } catch { return []; } })()
     : (inv.line_items || []);
+  const itemsSum = items.length > 0
+    ? items.reduce((s, it) => s + n(it.amount), 0)
+    : n(inv.taxable_value);
+  const net       = itemsSum + cgst + sgst + igst;
   const expenseEntries = items.length > 0
     ? items.map(it => entry(resolveLedger(it.description || ''), true, n(it.amount))).join('')
     : entry(DEFAULT_EXPENSE_LEDGER, true, n(inv.taxable_value));
