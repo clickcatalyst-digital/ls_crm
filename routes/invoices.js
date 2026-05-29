@@ -235,6 +235,30 @@ function entry(ledgerName, isDebit, amount, isParty = false, billRef = null) {
             </ALLLEDGERENTRIES.LIST>`;
 }
 
+// Inventory entry: a stock line inside a Purchase voucher.
+// Contains the stock movement (qty × rate = amount) AND its accounting allocation
+// (debits the purchase ledger). Tally requires both halves inside one block.
+function inventoryEntry(stockName, qty, rate, amount, accLedger, unit) {
+  const unitStr = unit || 'pcs';
+  const qtyStr  = `${n(qty) || 0} ${unitStr}`;
+  const amtStr  = n(amount).toFixed(2);
+  const rateStr = rate ? `${n(rate)}/${unitStr}` : '';
+  return `
+            <ALLINVENTORYENTRIES.LIST>
+              <STOCKITEMNAME>${xmlEscape(stockName)}</STOCKITEMNAME>
+              <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+              ${rateStr ? `<RATE>${xmlEscape(rateStr)}</RATE>` : ''}
+              <ACTUALQTY>${qtyStr}</ACTUALQTY>
+              <BILLEDQTY>${qtyStr}</BILLEDQTY>
+              <AMOUNT>${amtStr}</AMOUNT>
+              <ACCOUNTINGALLOCATIONS.LIST>
+                <LEDGERNAME>${xmlEscape(accLedger)}</LEDGERNAME>
+                <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+                <AMOUNT>${amtStr}</AMOUNT>
+              </ACCOUNTINGALLOCATIONS.LIST>
+            </ALLINVENTORYENTRIES.LIST>`;
+}
+
 function envelope(voucherXML) {
   return `<ENVELOPE>
   <HEADER><TALLYREQUEST>Import Data</TALLYREQUEST></HEADER>
@@ -256,12 +280,40 @@ function buildPurchaseXML(inv) {
   const party     = inv.party_name || 'Unknown Supplier';
   const invoiceNo = inv.invoice_no || '';
   const date      = fmtDate(inv.invoice_date);
-  const taxable   = n(inv.taxable_value);
   const cgst      = n(inv.cgst);
   const sgst      = n(inv.sgst);
   const igst      = n(inv.igst);
-  const net       = taxable + cgst + sgst + igst;
   const purchaseLedger = inv.purchase_ledger || (igst > 0 ? PURCHASE_INTRA : PURCHASE_LOCAL);
+  const items = typeof inv.line_items === 'string'
+    ? (() => { try { return JSON.parse(inv.line_items); } catch { return []; } })()
+    : (inv.line_items || []);
+
+  // Lines can be 'stock' (→ inventory entry) or 'expense' (→ direct ledger entry).
+  // Back-compat: if no line has a 'kind' field, fall back to a single aggregate
+  // purchase-ledger entry using taxable_value — preserves the original behavior
+  // for invoices created before the hybrid model.
+  let lineEntries = '';
+  let linesSum = 0;
+  const hasKind = items.length > 0 && items.some(it => it.kind);
+  if (hasKind) {
+    for (const it of items) {
+      const amt = n(it.amount);
+      if (!amt) continue;
+      if (it.kind === 'stock' && it.stock_item_name) {
+        lineEntries += inventoryEntry(it.stock_item_name, it.qty, it.rate, amt, purchaseLedger, it.uom);
+      } else {
+        const ledger = it.ledger || resolveLedger(it.description || '');
+        lineEntries += entry(ledger, true, amt);
+      }
+      linesSum += amt;
+    }
+  } else {
+    const taxable = n(inv.taxable_value);
+    lineEntries = entry(purchaseLedger, true, taxable);
+    linesSum = taxable;
+  }
+
+  const net = linesSum + cgst + sgst + igst;
   const narration = [
     invoiceNo && `Inv: ${invoiceNo}`,
     inv.mawb_no && `MAWB: ${inv.mawb_no}`,
@@ -274,7 +326,7 @@ function buildPurchaseXML(inv) {
             <VOUCHERNUMBER>${xmlEscape(invoiceNo)}</VOUCHERNUMBER>
             <PARTYLEDGERNAME>${xmlEscape(party)}</PARTYLEDGERNAME>
             <NARRATION>${xmlEscape(narration)}</NARRATION>
-            ${entry(purchaseLedger, true,  taxable)}
+            ${lineEntries}
             ${cgst > 0 ? entry(CGST_LEDGER, true, cgst) : ''}
             ${sgst > 0 ? entry(SGST_LEDGER, true, sgst) : ''}
             ${igst > 0 ? entry(IGST_LEDGER, true, igst) : ''}
@@ -495,6 +547,16 @@ router.get('/', async (req, res) => {
     `SELECT * FROM crm_invoices ${where} ORDER BY created_at DESC LIMIT 200`,
     params
   ));
+});
+
+// Synced stock items (refreshed every 15 min by the agent). Optionally filter by parent group.
+router.get('/tally-stock-items', async (req, res) => {
+  const group = req.query.group;
+  const sql = group
+    ? 'SELECT name, parent, base_units FROM crm_tally_stock_items WHERE parent = ? ORDER BY name'
+    : 'SELECT name, parent, base_units FROM crm_tally_stock_items ORDER BY parent, name';
+  const rows = await queryAll(sql, group ? [group] : []);
+  res.json(rows);
 });
 
 router.get('/:id/checks', async (req, res) => {

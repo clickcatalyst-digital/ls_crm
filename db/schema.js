@@ -143,23 +143,34 @@ async function initDB() {
     synced_at   DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
+  // Snapshot of Tally stock items, synced up by the local agent.
+  // Mirrors crm_tally_ledgers — same pattern, different master.
+  await db.execute(`CREATE TABLE IF NOT EXISTS crm_tally_stock_items (
+    name        TEXT PRIMARY KEY,
+    parent      TEXT,
+    base_units  TEXT,
+    closing_qty TEXT,
+    closing_rate TEXT,
+    synced_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_invoices_status ON crm_invoices(status)`);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON crm_invoices(invoice_date)`);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_tasks_invoice ON crm_tasks(invoice_id)`);
 
-    // Migrations — safe to re-run, errors mean column already exists
-    try {
-        await db.execute(`ALTER TABLE outwards ADD COLUMN po_id INTEGER REFERENCES crm_purchase_orders(id) ON DELETE SET NULL`);
-    } catch (e) {}
-    try {
-        await db.execute(`ALTER TABLE outwards ADD COLUMN company_id INTEGER REFERENCES crm_companies(id) ON DELETE SET NULL`);
-    } catch (e) {}
+  // Migrations — safe to re-run, errors mean column already exists
+  try {
+      await db.execute(`ALTER TABLE outwards ADD COLUMN po_id INTEGER REFERENCES crm_purchase_orders(id) ON DELETE SET NULL`);
+  } catch (e) {}
+  try {
+      await db.execute(`ALTER TABLE outwards ADD COLUMN company_id INTEGER REFERENCES crm_companies(id) ON DELETE SET NULL`);
+  } catch (e) {}
 
-    await db.execute(`CREATE INDEX IF NOT EXISTS idx_po_company ON crm_purchase_orders(company_id)`);
-    await db.execute(`CREATE INDEX IF NOT EXISTS idx_po_status ON crm_purchase_orders(status)`);
-    await db.execute(`CREATE INDEX IF NOT EXISTS idx_po_items_po ON crm_po_items(po_id)`);
-    await db.execute(`CREATE INDEX IF NOT EXISTS idx_outwards_po ON outwards(po_id)`);
-    await db.execute(`CREATE INDEX IF NOT EXISTS idx_outwards_company ON outwards(company_id)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_po_company ON crm_purchase_orders(company_id)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_po_status ON crm_purchase_orders(status)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_po_items_po ON crm_po_items(po_id)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_outwards_po ON outwards(po_id)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_outwards_company ON outwards(company_id)`);
 
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_contacts_company ON crm_contacts(company_id)`);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_contacts_status ON crm_contacts(status)`);
@@ -167,6 +178,8 @@ async function initDB() {
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_tasks_due ON crm_tasks(due_date, status)`);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_tasks_contact ON crm_tasks(contact_id)`);
 
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_ledgers_parent ON crm_tally_ledgers(parent)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_stock_parent ON crm_tally_stock_items(parent)`);
 
 
   // Ensure counters table exists (shared with inventory, safe to re-declare)

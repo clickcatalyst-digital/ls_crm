@@ -483,6 +483,50 @@
     let _rvLines = [];    // editable line items
     let _rvLocked = false;
 
+    let _stockItems = null;  // cached on first openReview; reload by closing and reopening
+
+    async function loadStockItems() {
+      if (_stockItems !== null) return;
+      try { _stockItems = await api('/api/invoices/tally-stock-items'); }
+      catch (e) { _stockItems = []; }
+    }
+
+    function stockItemOptions(selected) {
+      if (!_stockItems || !_stockItems.length) return '<option value="">— No stock items synced —</option>';
+      const byParent = {};
+      for (const it of _stockItems) {
+        const p = (it.parent || 'Other').trim() || 'Other';
+        (byParent[p] = byParent[p] || []).push(it);
+      }
+      let html = `<option value="">— Select stock item —</option>`;
+      for (const g of Object.keys(byParent).sort()) {
+        html += `<optgroup label="${esc(g)}">`;
+        for (const it of byParent[g]) {
+          const sel = it.name === selected ? 'selected' : '';
+          html += `<option value="${esc(it.name)}" ${sel}>${esc(it.name)}</option>`;
+        }
+        html += '</optgroup>';
+      }
+      return html;
+    }
+
+    function recalcLineAmount(i) {
+      const li = _rvLines[i];
+      const q = parseFloat(li.qty), r = parseFloat(li.rate);
+      if (!isNaN(q) && !isNaN(r)) {
+        li.amount = (q * r).toFixed(2);
+        const el = document.getElementById(`rv_line_amt_${i}`);
+        if (el) el.value = li.amount;
+      }
+    }
+
+    function syncStockDefaults(i) {
+      const li = _rvLines[i];
+      const item = (_stockItems || []).find(s => s.name === li.stock_item_name);
+      if (item) li.uom = item.base_units;
+      recalcLineAmount(i);
+    }
+
     const FIELD_DEFS = [
       { k: 'invoice_no', label: 'Document No', req: true },
       { k: 'invoice_date', label: 'Date', req: true },
@@ -516,6 +560,7 @@
       try {
         const inv = await api(`/api/invoices/${id}`);
         _rvInv = inv;
+        await loadStockItems();
 
         // Non-reviewable states get a short message instead of the edit form
         if (inv.status === 'reading') {
@@ -630,17 +675,53 @@
 
     function renderLines() {
       const box = document.getElementById('rvLines'); if (!box) return;
-      box.innerHTML = _rvLines.map((li, i) => `
-        <div class="rv-line">
-          ${_rvLocked ? '' : `<span class="rv-line-del" onclick="rvDelLine(${i})">Remove</span>`}
-          <div class="rv-field"><label>Description</label><input value="${esc(li.description||'')}" oninput="_rvLines[${i}].description=this.value" ${_rvLocked?'disabled':''}></div>
-          <div class="rv-grid">
-            <div class="rv-field"><label>HSN</label><input value="${esc(li.hsn||'')}" oninput="_rvLines[${i}].hsn=this.value" ${_rvLocked?'disabled':''}></div>
-            <div class="rv-field"><label>Amount</label><input value="${esc(li.amount||'')}" oninput="_rvLines[${i}].amount=this.value" ${_rvLocked?'disabled':''}></div>
+      const showKindToggle = _rvInv && _rvInv.doc_type === 'purchase_invoice';
+      box.innerHTML = _rvLines.map((li, i) => {
+        if (!li.kind) li.kind = showKindToggle ? 'stock' : 'expense';
+        const isStock = li.kind === 'stock';
+        const dis = _rvLocked ? 'disabled' : '';
+        const kindToggle = showKindToggle ? `
+          <div class="rv-field">
+            <label>Type</label>
+            <select onchange="_rvLines[${i}].kind=this.value;renderLines()" ${dis}>
+              <option value="stock" ${isStock?'selected':''}>Stock item</option>
+              <option value="expense" ${!isStock?'selected':''}>Expense / service</option>
+            </select>
+          </div>` : '';
+        const stockBody = `
+          <div class="rv-field">
+            <label>Stock Item</label>
+            <select onchange="_rvLines[${i}].stock_item_name=this.value;syncStockDefaults(${i})" ${dis}>
+              ${stockItemOptions(li.stock_item_name || '')}
+            </select>
           </div>
-        </div>`).join('') || '<div style="color:var(--text-muted);font-size:12px;">No line items.</div>';
+          <div class="rv-grid">
+            <div class="rv-field"><label>Qty (${esc(li.uom||'pcs')})</label><input type="number" step="any" value="${esc(li.qty||'')}" oninput="_rvLines[${i}].qty=this.value;recalcLineAmount(${i})" ${dis}></div>
+            <div class="rv-field"><label>Rate</label><input type="number" step="any" value="${esc(li.rate||'')}" oninput="_rvLines[${i}].rate=this.value;recalcLineAmount(${i})" ${dis}></div>
+          </div>
+          <div class="rv-field"><label>Amount (auto qty × rate)</label><input id="rv_line_amt_${i}" type="number" step="any" value="${esc(li.amount||'')}" oninput="_rvLines[${i}].amount=this.value" ${dis}></div>`;
+        const expenseBody = `
+          <div class="rv-field"><label>Description</label><input value="${esc(li.description||'')}" oninput="_rvLines[${i}].description=this.value" ${dis}></div>
+          <div class="rv-grid">
+            <div class="rv-field"><label>HSN</label><input value="${esc(li.hsn||'')}" oninput="_rvLines[${i}].hsn=this.value" ${dis}></div>
+            <div class="rv-field"><label>Amount</label><input type="number" step="any" value="${esc(li.amount||'')}" oninput="_rvLines[${i}].amount=this.value" ${dis}></div>
+          </div>`;
+        return `<div class="rv-line">
+          ${_rvLocked ? '' : `<span class="rv-line-del" onclick="rvDelLine(${i})">Remove</span>`}
+          ${kindToggle}
+          ${isStock ? stockBody : expenseBody}
+        </div>`;
+      }).join('') || '<div style="color:var(--text-muted);font-size:12px;">No line items.</div>';
     }
-    function rvAddLine() { _rvLines.push({ description:'', hsn:'', qty:'', uom:'', rate:'', amount:'' }); renderLines(); }
+    function rvAddLine() {
+      const isStockDefault = _rvInv && _rvInv.doc_type === 'purchase_invoice';
+      _rvLines.push({
+        kind: isStockDefault ? 'stock' : 'expense',
+        description:'', hsn:'', qty:'', uom:'', rate:'', amount:'',
+        stock_item_name: ''
+      });
+      renderLines();
+    }
     function rvDelLine(i) { _rvLines.splice(i,1); renderLines(); }
 
     function renderCustom() {
