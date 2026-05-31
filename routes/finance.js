@@ -124,19 +124,29 @@ router.get('/inventory', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/finance/cash-bank — bank and cash account balances from Tally ledgers
+// GET /api/finance/cash-bank — bank/cash accounts + advances + tax liabilities
+// Returns { accounts, advances, tax } for a full financial position view
 router.get('/cash-bank', async (req, res) => {
   try {
     const rows = await queryAll(
       `SELECT name, parent, closing_balance FROM crm_tally_ledgers
-       WHERE parent IN ('Bank Accounts', 'Cash-in-Hand', 'Bank OD Account')
+       WHERE parent IN ('Bank Accounts','Cash-in-Hand','Bank OD Account',
+                        'Advance From Customers','Duties & Taxes')
        ORDER BY parent, name`
     );
-    res.json(rows.map(r => {
-      const bal = parseTallyBalance(r.closing_balance);
-      // Tally: negative = Dr = you have money; positive = Cr = overdraft
-      return { name: r.name, parent: r.parent, balance: Math.abs(bal), is_overdraft: bal > 0 };
-    }));
+    const map = (parent_groups, invert) => rows
+      .filter(r => parent_groups.includes(r.parent))
+      .map(r => {
+        const bal = parseTallyBalance(r.closing_balance);
+        return { name: r.name, parent: r.parent, balance: Math.abs(bal), is_overdraft: invert ? bal < 0 : bal > 0 };
+      })
+      .filter(r => r.balance > 0);
+
+    res.json({
+      accounts: map(['Bank Accounts','Cash-in-Hand','Bank OD Account'], false),
+      advances: map(['Advance From Customers'], true),  // Cr balance = you hold advance
+      tax:      map(['Duties & Taxes'], true),           // Cr balance = you owe tax
+    });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
