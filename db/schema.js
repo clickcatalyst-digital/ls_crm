@@ -158,6 +158,51 @@ async function initDB() {
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON crm_invoices(invoice_date)`);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_tasks_invoice ON crm_tasks(invoice_id)`);
 
+  await db.execute(`CREATE TABLE IF NOT EXISTS crm_tally_sales_vouchers (
+    voucher_no    TEXT PRIMARY KEY,
+    date          TEXT,
+    party_name    TEXT,
+    amount        REAL,
+    narration     TEXT,
+    ledger_lines  TEXT DEFAULT '[]',
+    bill_refs     TEXT DEFAULT '[]',
+    synced_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  await db.execute(`CREATE TABLE IF NOT EXISTS crm_tally_bank_txns (
+    voucher_no    TEXT PRIMARY KEY,
+    voucher_type  TEXT,
+    date          TEXT,
+    party_name    TEXT,
+    amount        REAL,
+    narration     TEXT,
+    bill_refs     TEXT DEFAULT '[]',
+    synced_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  await db.execute(`CREATE TABLE IF NOT EXISTS crm_tally_outstanding (
+    party_name    TEXT NOT NULL,
+    bill_ref      TEXT NOT NULL,
+    voucher_no    TEXT,
+    bill_date     TEXT,
+    original_amt  REAL,
+    settled_amt   REAL DEFAULT 0,
+    pending_amt   REAL,
+    credit_days   INTEGER DEFAULT 0,
+    due_date      TEXT,
+    overdue_days  INTEGER DEFAULT 0,
+    synced_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (party_name, bill_ref)
+  )`);
+
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_sales_vch_party ON crm_tally_sales_vouchers(party_name)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_sales_vch_date  ON crm_tally_sales_vouchers(date)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_bank_txns_type  ON crm_tally_bank_txns(voucher_type)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_bank_txns_date  ON crm_tally_bank_txns(date)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_outstanding_party   ON crm_tally_outstanding(party_name)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_outstanding_due     ON crm_tally_outstanding(due_date)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_outstanding_overdue ON crm_tally_outstanding(overdue_days)`);
+
   // Migrations — safe to re-run, errors mean column already exists
   try {
       await db.execute(`ALTER TABLE outwards ADD COLUMN po_id INTEGER REFERENCES crm_purchase_orders(id) ON DELETE SET NULL`);

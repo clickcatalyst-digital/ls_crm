@@ -69,12 +69,14 @@ function requireLogin(req, res, next) {
   app.get('/clients', (req, res) => res.sendFile(path.join(__dirname, 'views', 'clients.html')));
   app.get('/settings', (req, res) => res.sendFile(path.join(__dirname, 'views', 'settings.html')));
   app.get('/docs', (req, res) => res.sendFile(path.join(__dirname, 'views', 'docs.html')));
+  app.get('/finance', (req, res) => res.sendFile(path.join(__dirname, 'views', 'finance.html')));
 
   // API
   app.use('/api/products', require('./routes/products'));
   app.use('/api/clients', require('./routes/clients'));
   app.use('/api/tasks', require('./routes/tasks'));
   app.use('/api/invoices', require('./routes/invoices'));
+  app.use('/api/finance', require('./routes/finance'));
   app.use('/api/settings', require('./routes/settings'));
   app.use('/api/po', require('./routes/po'));
 
