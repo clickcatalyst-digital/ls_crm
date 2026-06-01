@@ -81,6 +81,9 @@ router.get('/debtors', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/finance/sales
+// Note: bill_refs is included so the frontend can derive amount when voucher-level
+// amount=0 (Tally DayBook does not populate <AMOUNT> for Sales vouchers at voucher level)
 // GET /api/finance/sales  — optional ?from=YYYY-MM-DD&to=YYYY-MM-DD
 // bill_refs included: Tally DayBook sets voucher-level amount=0 for Sales; frontend derives from bill_refs
 router.get('/sales', async (req, res) => {
@@ -166,83 +169,6 @@ router.get('/payables', async (req, res) => {
       .filter(r => r.balance > 0)
       .sort((a, b) => b.balance - a.balance)
     );
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// GET /api/finance/pnl-snapshot — P&L account ledger balances (resets each FY in Indian accounting)
-// Answers: Are we profitable? What's our revenue vs cost this year?
-router.get('/pnl-snapshot', async (req, res) => {
-  try {
-    const rows = await queryAll(
-      `SELECT name, parent, closing_balance FROM crm_tally_ledgers
-       WHERE parent IN ('Sales Accounts','Purchase Accounts','Indirect Expenses',
-                        'Direct Expenses','Direct Incomes','Indirect Incomes')
-       ORDER BY parent, name`
-    );
-    const bucket = (parents) => rows
-      .filter(r => parents.includes(r.parent))
-      .map(r => ({ name: r.name, parent: r.parent, balance: Math.abs(parseTallyBalance(r.closing_balance)) }))
-      .filter(r => r.balance > 0);
-
-    const sales    = bucket(['Sales Accounts', 'Direct Incomes', 'Indirect Incomes']);
-    const purchase = bucket(['Purchase Accounts']);
-    const opex     = bucket(['Indirect Expenses', 'Direct Expenses']);
-
-    const totalSales    = sales.reduce((s, r) => s + r.balance, 0);
-    const totalPurchase = purchase.reduce((s, r) => s + r.balance, 0);
-    const totalOpEx     = opex.reduce((s, r) => s + r.balance, 0);
-    const grossProfit   = totalSales - totalPurchase;
-
-    res.json({ sales, purchase, opex, totalSales, totalPurchase, totalOpEx, grossProfit });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// GET /api/finance/transactions — bank receipts + payments with date/type filter
-// Answers: Has a customer paid? What went out this month? Net cash flow?
-router.get('/transactions', async (req, res) => {
-  try {
-    const { from, to, type } = req.query;
-    const conditions = [];
-    const params = [];
-    if (from && to) { conditions.push('date >= ? AND date <= ?'); params.push(from, to); }
-    if (type && type !== 'all') { conditions.push('voucher_type = ?'); params.push(type); }
-    const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
-    const rows = await queryAll(
-      `SELECT voucher_no, voucher_type, date, party_name, amount, narration
-       FROM crm_tally_bank_txns ${where} ORDER BY date DESC, voucher_no DESC`,
-      params
-    );
-    const totalIn  = rows.filter(r => r.voucher_type === 'Receipt').reduce((s, r) => s + Math.abs(r.amount || 0), 0);
-    const totalOut = rows.filter(r => r.voucher_type === 'Payment').reduce((s, r) => s + Math.abs(r.amount || 0), 0);
-    res.json({ rows, totalIn, totalOut, netFlow: totalIn - totalOut });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// GET /api/finance/purchase-register — purchase vouchers with date filter
-// Answers: What did we buy, from whom, and at what cost this period?
-router.get('/purchase-register', async (req, res) => {
-  try {
-    const { from, to } = req.query;
-    const where  = (from && to) ? 'WHERE date >= ? AND date <= ?' : '';
-    const params = (from && to) ? [from, to] : [];
-    const rows = await queryAll(
-      `SELECT voucher_no, date, party_name, amount, narration, inventory_lines, ledger_lines, bill_refs
-       FROM crm_tally_purchase_vouchers ${where} ORDER BY date DESC`,
-      params
-    );
-    res.json(rows.map(r => {
-      for (const f of ['inventory_lines', 'ledger_lines', 'bill_refs']) {
-        if (typeof r[f] === 'string') { try { r[f] = JSON.parse(r[f]); } catch { r[f] = []; } }
-        if (!Array.isArray(r[f])) r[f] = [];
-      }
-      // Derive total from inventory lines if voucher-level amount=0
-      if (!r.amount || r.amount === 0) {
-        r.amount = r.inventory_lines.reduce((s, l) => s + Math.abs(l.amount || 0), 0);
-      } else {
-        r.amount = Math.abs(r.amount);
-      }
-      return r;
-    }));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

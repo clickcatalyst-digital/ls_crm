@@ -99,8 +99,8 @@
       </button>
       <a href="/">Dashboard</a>
       <a href="/clients">Clients</a>
-      <a href="/docs">Docs</a>
       <a href="/finance" class="active">Finance</a>
+      <a href="/docs">Docs</a>
     </div>
     <div class="cog-menu" id="cogMenu">
       <button class="cog-btn" onclick="toggleCogMenu()" title="Menu">
@@ -136,7 +136,7 @@
       <button class="fin-nav-btn active" data-tab="receivables" onclick="finTab('receivables')">Receivables</button>
       <button class="fin-nav-btn" data-tab="sales"        onclick="finTab('sales')">Sales Register</button>
       <button class="fin-nav-btn" data-tab="inventory"    onclick="finTab('inventory')">Inventory</button>
-      <button class="fin-nav-btn" data-tab="cashbank"     onclick="finTab('cashbank')">Financial Position</button>
+      <button class="fin-nav-btn" data-tab="cashbank"     onclick="finTab('cashbank')">Cash &amp; Bank</button>
       <button class="fin-nav-btn" data-tab="payables"     onclick="finTab('payables')">Payables</button>
     </div>
 
@@ -205,12 +205,6 @@
 
     <!-- ═══════════ INVENTORY ═══════════ -->
     <div class="tab-pane" id="pane-inventory">
-      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
-        <input type="search" class="form-control" id="invSearch" placeholder="Search item name or group…" style="max-width:260px" oninput="filterInventory()">
-        <select class="form-control" id="invGroupFilter" style="width:auto;max-width:200px" onchange="filterInventory()">
-          <option value="">All groups</option>
-        </select>
-      </div>
       <div class="card recon-alert" id="invAlert" style="display:none">
         <div class="card-title">⚠ Negative Stock Alert <span class="fin-i" tabindex="0" data-tip="Items with negative closing quantity. These must be corrected in Tally before dispatching more — negative stock means consumption entries exist without matching purchase receipts.">i</span></div>
         <p id="invAlertText" style="font-size:12px;color:var(--text-muted);"></p>
@@ -252,75 +246,23 @@
           <div id="cbOtherContent"><p style="color:var(--text-muted);font-size:12px;">Loading…</p></div>
         </div>
       </div>
-
-      <!-- P&L Snapshot -->
-      <div class="card" style="margin-bottom:16px">
-        <div class="card-title">This FY — Revenue &amp; Cost <span class="fin-i" tabindex="0" data-tip="P&amp;L account balances for this financial year. In Indian accounting these reset each April — so this reflects current FY only. Answers: Are we making gross profit? Where is most money going?">i</span></div>
-        <div class="stats-grid" id="pnlKpis" style="margin-bottom:16px">
-          <div class="stat-box"><div class="stat-value" id="pnl-revenue">—</div><div class="stat-label">Revenue</div></div>
-          <div class="stat-box"><div class="stat-value" id="pnl-cogs">—</div><div class="stat-label">Cost of Goods</div></div>
-          <div class="stat-box"><div class="stat-value" id="pnl-gp" style="color:var(--success)">—</div><div class="stat-label">Gross Profit</div></div>
-          <div class="stat-box"><div class="stat-value" id="pnl-opex">—</div><div class="stat-label">Operating Exp.</div></div>
-        </div>
-        <div class="analytics-grid" id="pnlBreakdown" style="display:none"></div>
-      </div>
-
-      <!-- Transaction History -->
-      <div class="card">
-        <div class="card-title">Transaction History <span class="fin-i" tabindex="0" data-tip="Bank receipts and payments from Tally. Use to verify whether a specific customer has paid, or to review all outgoing payments this month. Net flow = receipts minus payments.">i</span></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-          <button class="fin-period-btn active" data-txnperiod="month"     onclick="setTxnPeriod('month')">This Month</button>
-          <button class="fin-period-btn"        data-txnperiod="lastmonth" onclick="setTxnPeriod('lastmonth')">Last Month</button>
-          <button class="fin-period-btn"        data-txnperiod="fy"        onclick="setTxnPeriod('fy')">This FY</button>
-          <button class="fin-period-btn"        data-txnperiod="all"       onclick="setTxnPeriod('all')">All Time</button>
-          <select id="txnType" onchange="loadTransactions()" style="font-family:var(--font);font-size:11px;font-weight:700;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text-muted);cursor:pointer">
-            <option value="all">All types</option>
-            <option value="Receipt">Receipts only</option>
-            <option value="Payment">Payments only</option>
-          </select>
-        </div>
-        <div id="txnContent"><p style="color:var(--text-muted);font-size:12px;text-align:center;padding:20px">No bank transactions synced yet — will appear automatically once Tally records receipts or payments.</p></div>
-      </div>
     </div>
 
     <!-- ═══════════ PAYABLES ═══════════ -->
     <div class="tab-pane" id="pane-payables">
-
-      <!-- Domestic vs Import split + Search -->
-      <div class="analytics-grid" style="margin-bottom:16px">
-        <div class="card" style="margin-bottom:0">
-          <div class="card-title">By Origin <span class="fin-i" tabindex="0" data-tip="Import payables = foreign suppliers (FX exposure, LC terms). Domestic = local suppliers. High import share means payments depend on exchange rate. Use to prioritise which payables need attention first.">i</span></div>
-          <div id="payOriginContent"><p style="color:var(--text-muted);font-size:12px;">Loading…</p></div>
-        </div>
-        <div class="card" style="margin-bottom:0">
-          <div class="card-title">Find Supplier <span class="fin-i" tabindex="0" data-tip="Filter suppliers by name to quickly check a specific balance before making a payment decision.">i</span></div>
-          <input type="search" class="form-control" id="paySearch" placeholder="Search suppliers…" style="width:100%" oninput="filterPayables()">
-          <div style="margin-top:12px">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+          <div>
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px">Total Payables</div>
-            <div style="font-size:24px;font-weight:700;letter-spacing:-0.5px" id="pay-total">—</div>
+            <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px" id="pay-total">—</div>
             <div style="font-size:11px;color:var(--text-muted);margin-top:3px" id="pay-subtitle">— suppliers · closing balance only</div>
           </div>
+          <span class="fin-i" tabindex="0" data-tip="What you owe suppliers per Tally ledger closing balances. No aging available until purchase vouchers are synced. Prioritize largest balances first unless you have specific payment terms agreed.">i</span>
         </div>
-      </div>
-
-      <!-- Supplier ledger balances -->
-      <div class="card" style="margin-bottom:16px">
         <div id="payables-container"></div>
-        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);line-height:1.6">
-          Balances from Tally ledgers only. Payment due dates available once purchase vouchers are synced.
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);line-height:1.6;">
+          Payment due dates are not available — purchase voucher sync is not yet active. These are ledger closing balances from Tally only.
         </div>
-      </div>
-
-      <!-- Purchase Register -->
-      <div class="card">
-        <div class="card-title">Purchase Register <span class="fin-i" tabindex="0" data-tip="All purchase vouchers from Tally for the selected period. Answers: What did we buy? From whom? At what cost? Use to reconcile with payables balances — new purchases this period vs existing debt.">i</span></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-          <button class="fin-period-btn active" data-purperiod="month"     onclick="setPurPeriod('month')">This Month</button>
-          <button class="fin-period-btn"        data-purperiod="lastmonth" onclick="setPurPeriod('lastmonth')">Last Month</button>
-          <button class="fin-period-btn"        data-purperiod="fy"        onclick="setPurPeriod('fy')">This FY</button>
-          <button class="fin-period-btn"        data-purperiod="all"       onclick="setPurPeriod('all')">All Time</button>
-        </div>
-        <div id="purchase-register-container"></div>
       </div>
     </div>
 
@@ -348,6 +290,8 @@
     // ─── Helpers ──────────────────────────────────────────────────────────────
     const INR = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
+    // formatDate() from app.js appends +05:30 which breaks plain YYYY-MM-DD dates from Tally.
+    // This local version parses them correctly without timezone shift.
     function finDate(d) {
       if (!d || d === 'null') return '—';
       const s = String(d).trim().slice(0, 10);
@@ -356,6 +300,8 @@
       return new Date(y, m - 1, day).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     }
 
+    // Derive amount from bill_refs when voucher-level amount is 0
+    // (Tally DayBook does not populate <AMOUNT> at voucher level for Sales type)
     function resolveAmt(v) {
       let amt = Math.abs(v.amount || 0);
       if (!amt) {
@@ -388,12 +334,13 @@
       return Math.floor(diff / 86400) + 'd ago';
     }
 
+
     // ─── Period filter (Sales tab) ───────────────────────────────────────────
     let _salesPeriod = 'month';
 
     function setSalesPeriod(p) {
       _salesPeriod = p;
-      document.querySelectorAll('[data-period]').forEach(b => b.classList.toggle('active', b.dataset.period === p));
+      document.querySelectorAll('.fin-period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === p));
       document.getElementById('customRange').classList.toggle('open', p === 'custom');
       if (p !== 'custom') loadSales();
     }
@@ -449,6 +396,7 @@
                 </div>
               </div>`).join('')
           : '<div class="fin-empty">No bank or cash accounts found in Tally ledgers.<br><span style="font-size:11px">Expected groups: Bank Accounts, Cash-in-Hand</span></div>';
+        // Other positions: advances + tax
         const advTotal = advances.reduce((s, r) => s + r.balance, 0);
         const taxTotal = tax.reduce((s, r) => s + r.balance, 0);
         const otherRows = [
@@ -471,173 +419,17 @@
               </div>`).join('')
           : '<div class="fin-empty" style="padding:16px">No advance or tax positions found.</div>';
       } catch (e) {}
-      loadPnlSnapshot();
-      loadTransactions();
     }
 
     // ─── Payables ─────────────────────────────────────────────────────────────
     async function loadPayables() {
       try {
         const suppliers = await api('/api/finance/payables');
-        _payData = suppliers;
-        const total    = suppliers.reduce((s, r) => s + r.balance, 0);
-        const domestic = suppliers.filter(r => r.parent === 'Sundry Creditors').reduce((s, r) => s + r.balance, 0);
-        const imports  = suppliers.filter(r => r.parent !== 'Sundry Creditors').reduce((s, r) => s + r.balance, 0);
+        const total = suppliers.reduce((s, r) => s + r.balance, 0);
         document.getElementById('pay-total').textContent    = INR(total);
-        document.getElementById('pay-subtitle').textContent =
-          `${suppliers.length} supplier${suppliers.length !== 1 ? 's' : ''} · closing balance only`;
-        document.getElementById('payOriginContent').innerHTML = `
-          <div class="fin-bal-row">
-            <div>
-              <div class="fin-bal-name">Domestic</div>
-              <div class="fin-bal-sub">${suppliers.filter(r => r.parent==='Sundry Creditors').length} suppliers</div>
-            </div>
-            <div class="fin-bal-amt">${INR(domestic)}</div>
-          </div>
-          <div class="fin-bal-row">
-            <div>
-              <div class="fin-bal-name">Import</div>
-              <div class="fin-bal-sub" style="color:var(--warning)">${suppliers.filter(r => r.parent!=='Sundry Creditors').length} suppliers · FX exposure</div>
-            </div>
-            <div class="fin-bal-amt" style="color:var(--warning)">${INR(imports)}</div>
-          </div>`;
+        document.getElementById('pay-subtitle').textContent = `${suppliers.length} supplier${suppliers.length !== 1 ? 's' : ''} · closing balance only`;
         payablesTable.load(suppliers);
-        loadPurchaseRegister();
       } catch (e) {}
-    }
-
-    // ─── P&L Snapshot ─────────────────────────────────────────────────────────
-    async function loadPnlSnapshot() {
-      try {
-        const d = await api('/api/finance/pnl-snapshot');
-        document.getElementById('pnl-revenue').textContent = INR(d.totalSales);
-        document.getElementById('pnl-cogs').textContent    = INR(d.totalPurchase);
-        document.getElementById('pnl-opex').textContent    = INR(d.totalOpEx);
-        const gp = d.grossProfit;
-        const gpEl = document.getElementById('pnl-gp');
-        gpEl.textContent = INR(Math.abs(gp));
-        gpEl.style.color = gp >= 0 ? 'var(--success)' : 'var(--danger)';
-        gpEl.closest('.stat-box').querySelector('.stat-label').textContent =
-          gp >= 0 ? 'Gross Profit' : 'Gross Loss';
-        if (d.sales.length || d.purchase.length || d.opex.length) {
-          document.getElementById('pnlBreakdown').style.display = '';
-          const col = (title, tip, items) =>
-            `<div class="card" style="margin-bottom:0">
-               <div class="card-title" style="font-size:11px">${title}
-                 <span class="fin-i" tabindex="0" data-tip="${tip}">i</span>
-               </div>
-               ${items.map(r => `
-                 <div class="fin-val-row">
-                   <span style="color:var(--text-muted)">${esc(r.name)}</span>
-                   <strong>${INR(r.balance)}</strong>
-                 </div>`).join('') || '<div style="padding:12px;color:var(--text-muted);font-size:12px">No entries</div>'}
-             </div>`;
-          document.getElementById('pnlBreakdown').innerHTML =
-            col('Revenue Accounts', 'Sales and income ledger balances for this FY.', d.sales) +
-            col('Cost Accounts', 'Purchases and operating expenses for this FY.', [...d.purchase, ...d.opex]);
-        }
-      } catch(e) {}
-    }
-
-    // ─── Transaction History (Cash & Bank) ────────────────────────────────────
-    let _txnPeriod = 'month';
-
-    function setTxnPeriod(p) {
-      _txnPeriod = p;
-      document.querySelectorAll('[data-txnperiod]').forEach(b => b.classList.toggle('active', b.dataset.txnperiod === p));
-      loadTransactions();
-    }
-
-    async function loadTransactions() {
-      const now = new Date(), y = now.getFullYear(), m = now.getMonth();
-      const pad = n => String(n).padStart(2,'0');
-      const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-      let qs = '';
-      if (_txnPeriod === 'month')     qs = `?from=${y}-${pad(m+1)}-01&to=${iso(now)}`;
-      if (_txnPeriod === 'lastmonth') qs = `?from=${iso(new Date(y,m-1,1))}&to=${iso(new Date(y,m,0))}`;
-      if (_txnPeriod === 'fy')        qs = `?from=${m>=3?y:y-1}-04-01&to=${iso(now)}`;
-      const type = document.getElementById('txnType')?.value;
-      if (type && type !== 'all') qs += (qs ? '&' : '?') + `type=${type}`;
-      try {
-        const d = await api(`/api/finance/transactions${qs}`);
-        const el = document.getElementById('txnContent');
-        if (!d.rows || !d.rows.length) {
-          el.innerHTML = `<p style="color:var(--text-muted);font-size:12px;text-align:center;padding:20px">No transactions found for this period.</p>`;
-          return;
-        }
-        el.innerHTML = `
-          <div style="display:flex;gap:16px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap">
-            <span style="font-size:12px">In: <strong style="color:var(--success)">${INR(d.totalIn)}</strong></span>
-            <span style="font-size:12px">Out: <strong style="color:var(--danger)">${INR(d.totalOut)}</strong></span>
-            <span style="font-size:12px">Net: <strong style="color:${d.netFlow>=0?'var(--success)':'var(--danger)'}">${INR(Math.abs(d.netFlow))}</strong></span>
-          </div>` +
-          d.rows.map(r => `
-            <div class="fin-bal-row">
-              <div>
-                <div class="fin-bal-name" style="font-size:12px">${esc(r.party_name || r.narration || r.voucher_no)}</div>
-                <div class="fin-bal-sub">${finDate(r.date)} · <span style="color:${r.voucher_type==='Receipt'?'var(--success)':'var(--danger)'}">${esc(r.voucher_type)}</span></div>
-              </div>
-              <div style="font-weight:700;font-size:13px;color:${r.voucher_type==='Receipt'?'var(--success)':'var(--danger)'}">
-                ${r.voucher_type==='Receipt' ? '+' : '−'}${INR(Math.abs(r.amount||0))}
-              </div>
-            </div>`).join('');
-      } catch(e) {}
-    }
-
-    // ─── Inventory search + group filter ──────────────────────────────────────
-    let _invData = [];
-
-    function filterInventory() {
-      const q = (document.getElementById('invSearch')?.value || '').toLowerCase().trim();
-      const g = document.getElementById('invGroupFilter')?.value || '';
-      const out = _invData.filter(i =>
-        (!q || (i.name||'').toLowerCase().includes(q) || (i.parent||'').toLowerCase().includes(q)) &&
-        (!g || i.parent === g)
-      );
-      inventoryTable.load(out);
-    }
-
-    // ─── Payables: origin split + search ─────────────────────────────────────
-    let _payData = [];
-
-    function filterPayables() {
-      const q = (document.getElementById('paySearch')?.value || '').toLowerCase().trim();
-      payablesTable.load(q ? _payData.filter(r => (r.name||'').toLowerCase().includes(q)) : _payData);
-    }
-
-    // ─── Purchase Register ────────────────────────────────────────────────────
-    let _purPeriod = 'month';
-
-    const purchaseRegTable = new PaginatedTable({
-      containerId: 'purchase-register-container',
-      titleText: 'Purchases <span class="fin-i" tabindex="0" data-tip="Each purchase voucher from Tally. Amounts derived from inventory lines when voucher-level total is zero. Use to verify what was bought and cross-check with payable balances.">i</span>',
-      pageSize: 15,
-      columns: [
-        { label: 'Voucher No', render: r => `<span class="vno-link">${esc(r.voucher_no)}</span>` },
-        { label: 'Date',       render: r => finDate(r.date) },
-        { label: 'Supplier',   render: r => `<strong>${esc(r.party_name || '—')}</strong>` },
-        { label: 'Amount',     render: r => r.amount ? `<strong>${INR(r.amount)}</strong>` : '—' },
-        { label: 'Narration',  render: r => `<span style="color:var(--text-muted);font-size:11px">${esc((r.narration||'').slice(0,50))}</span>` },
-      ]
-    });
-
-    function setPurPeriod(p) {
-      _purPeriod = p;
-      document.querySelectorAll('[data-purperiod]').forEach(b => b.classList.toggle('active', b.dataset.purperiod === p));
-      loadPurchaseRegister();
-    }
-
-    async function loadPurchaseRegister() {
-      try {
-        const now = new Date(), y = now.getFullYear(), m = now.getMonth();
-        const pad = n => String(n).padStart(2,'0');
-        const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-        let qs = '';
-        if (_purPeriod === 'month')     qs = `?from=${y}-${pad(m+1)}-01&to=${iso(now)}`;
-        if (_purPeriod === 'lastmonth') qs = `?from=${iso(new Date(y,m-1,1))}&to=${iso(new Date(y,m,0))}`;
-        if (_purPeriod === 'fy')        qs = `?from=${m>=3?y:y-1}-04-01&to=${iso(now)}`;
-        purchaseRegTable.load(await api(`/api/finance/purchase-register${qs}`));
-      } catch(e) {}
     }
 
     // ─── Tab switching (lazy load) ────────────────────────────────────────────
@@ -738,6 +530,7 @@
         const parts = [];
         if (d.masterSyncEpoch)  parts.push(`Masters synced ${epochToRelative(d.masterSyncEpoch)}`);
         if (d.voucherSyncDate) {
+          // Convert YYYYMMDD integer to readable date
           const vs = String(d.voucherSyncDate);
           const vd = vs.length === 8
             ? new Date(+vs.slice(0,4), +vs.slice(4,6)-1, +vs.slice(6,8))
@@ -824,12 +617,6 @@
     async function loadInventory() {
       try {
         const items = await api('/api/finance/inventory');
-        _invData = items;
-        // Populate group filter
-        const groups = [...new Set(items.map(i => i.parent).filter(Boolean))].sort();
-        const gf = document.getElementById('invGroupFilter');
-        if (gf) gf.innerHTML = '<option value="">All groups</option>' +
-          groups.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
         // Negative stock alert
         const neg = items.filter(i => parseFloat(i.closing_qty || '0') < 0).length;
         if (neg > 0) {
@@ -841,15 +628,15 @@
         // Stock valuation by group
         function parseQty(s) { return Math.max(0, parseFloat((s || '').split(' ')[0]) || 0); }
         function parseRate(s) { return parseFloat((s || '').split('/')[0]) || 0; }
-        const groupVals = {};
+        const groups = {};
         let totalVal = 0;
         for (const i of items) {
           const val = parseQty(i.closing_qty) * parseRate(i.closing_rate);
           if (!i.parent) continue;
-          groupVals[i.parent] = (groupVals[i.parent] || 0) + val;
+          groups[i.parent] = (groups[i.parent] || 0) + val;
           totalVal += val;
         }
-        const sortedGroups = Object.entries(groupVals).sort((a,b) => b[1] - a[1]).slice(0, 8);
+        const sortedGroups = Object.entries(groups).sort((a,b) => b[1] - a[1]).slice(0, 8);
         if (totalVal > 0) {
           document.getElementById('invValGrid').style.display = '';
           document.getElementById('invValContent').innerHTML =
@@ -875,6 +662,8 @@
           finDate(v.date) + (v.party_name ? ' · ' + v.party_name : '');
 
         let html = '';
+
+        // Amount header — use bill_refs fallback (Tally DayBook amount=0 for sales vouchers)
         const vpAmt = resolveAmt(v);
         if (vpAmt) {
           html += `<div style="margin-bottom:16px">
@@ -882,9 +671,13 @@
             <span style="font-size:12px;color:var(--text-muted);margin-left:8px">invoice total</span>
           </div>`;
         }
+
+        // Narration
         if (v.narration) {
           html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;padding:10px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border)">${esc(v.narration)}</div>`;
         }
+
+        // Inventory lines — item-level detail (available after inventory_lines agent migration)
         const invLines = v.inventory_lines || [];
         if (invLines.length > 0) {
           html += `<div class="rv-section-label">Items Sold</div>
@@ -898,6 +691,8 @@
               </tr>`).join('')}</tbody>
             </table>`;
         }
+
+        // Ledger lines (accounting Dr/Cr)
         const lines = v.ledger_lines || [];
         if (lines.length > 0) {
           html += `<div class="rv-section-label">${invLines.length > 0 ? 'Accounting Entries' : 'Ledger Breakdown'}</div>
@@ -909,6 +704,8 @@
               </tr>`).join('')}</tbody>
             </table>`;
         }
+
+        // Bill references
         const refs = v.bill_refs || [];
         if (refs.length > 0) {
           html += `<div class="rv-section-label">Bill References</div>
@@ -922,6 +719,7 @@
               </tr>`).join('')}</tbody>
             </table>`;
         }
+
         if (!html) html = '<div class="fin-empty">No detail available for this voucher.</div>';
         document.getElementById('vpBody').innerHTML = html;
       } catch (e) {
@@ -949,13 +747,13 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
       Clients
     </a>
-    <a href="/docs">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
-      Docs
-    </a>
     <a href="/finance" class="active">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z"/></svg>
       Finance
+    </a>
+    <a href="/docs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+      Docs
     </a>
   </nav>
 </body>
