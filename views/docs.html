@@ -623,9 +623,22 @@
           </div>` : ''}
           ${inv.doc_type !== 'bank_statement' ? `
           <div class="rv-section-label">Core fields</div>
-          <div class="rv-grid">${FIELD_DEFS.map(f => fld(f, inv[f.k])).join('')}</div>` : `
-          <div class="rv-section-label">Statement period</div>
-          <div class="rv-field"><label>Statement Date</label><input id="rv_invoice_date" value="${esc(inv.invoice_date ?? '')}" ${_rvLocked?'disabled':''}></div>`}
+          <div class="rv-grid">${FIELD_DEFS.map(f => fld(f, inv[f.k])).join('')}${inv.doc_type === 'purchase_order' ? fld({k:'delivery_date',label:'Earliest Delivery Date',full:true}, inv.delivery_date) : ''}</div>` : `
+          <div class="rv-section-label">Account &amp; period</div>
+          ${fld({k:'account_no',label:'Account No',full:true}, inv.account_no)}
+          <div class="rv-grid">
+            ${fld({k:'statement_from',label:'Period From'}, inv.statement_from)}
+            ${fld({k:'statement_to',label:'Period To'}, inv.statement_to)}
+          </div>
+          ${fld({k:'invoice_date',label:'Download Date',full:true}, inv.invoice_date)}
+          <div class="rv-grid">
+            <div class="rv-field"><label>Opening Balance</label><input id="rv_opening_balance" type="number" step="0.01" value="${esc(inv.opening_balance ?? '')}" ${_rvLocked?'disabled':''}></div>
+            <div class="rv-field"><label>Closing Balance</label><input id="rv_closing_balance" type="number" step="0.01" value="${esc(inv.closing_balance ?? '')}" ${_rvLocked?'disabled':''}></div>
+          </div>
+          <div class="rv-grid">
+            <div class="rv-field"><label>Total Withdrawals</label><input id="rv_total_debit" type="number" step="0.01" value="${esc(inv.total_debit ?? '')}" ${_rvLocked?'disabled':''}></div>
+            <div class="rv-field"><label>Total Deposits</label><input id="rv_total_credit" type="number" step="0.01" value="${esc(inv.total_credit ?? '')}" ${_rvLocked?'disabled':''}></div>
+          </div>`}
           ${(inv.doc_type === 'freight_invoice' || inv.doc_type === 'bill_of_entry') ? `
           <div class="rv-section-label">Freight / shipment details</div>
           <div class="rv-grid">${FREIGHT_FIELDS.map(f => fld(f, inv[f.k])).join('')}</div>` : ''}

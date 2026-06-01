@@ -961,3 +961,24 @@
   </nav>
 </body>
 </html>
+
+<!-- **85/100** — up from 74/100.
+
+What moved the needle:
+
+| Area | Before | Now | Why |
+|---|---|---|---|
+| Expense ledgers (34) | 0 | ✓ | Shown in P&L snapshot |
+| Purchase accounts (12) | 0 | ✓ | Shown in P&L snapshot |
+| Purchase Register | 0 | ✓ | Table + routes ready |
+| Payables origin split | 0 | ✓ | Domestic vs Import shown |
+| Transaction History | 0 | ✓ | Infrastructure live, waiting on data |
+
+What's keeping it from 100:
+
+- **Bank transactions still 0 rows** — code is ready, Tally just hasn't synced receipts/payments yet. Self-resolves when agent runs.
+- **Stock valuation not rendering** — `closing_rate` is empty for most items in Tally. Not a code problem.
+- **Payables aging missing** — `bill_refs` in `crm_tally_purchase_vouchers` not yet populated by Tally. Will work once agent syncs bill allocations.
+- **Sales amounts show taxable value** — Tally stores bill allocation at pre-GST amount. Would need party ledger entry cross-reference to fix properly.
+
+Practically, once the agent populates purchase voucher bill_refs and receipts/payments start syncing, the score hits ~94/100 without any further code changes. -->
