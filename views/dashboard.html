@@ -447,10 +447,10 @@
       </div>
 
       <div class="stats-grid">
-        <div class="stat-box"><div class="stat-value" id="mTotal">—</div><div class="stat-label">Total Contacts</div></div>
-        <div class="stat-box"><div class="stat-value" id="mQualified">—</div><div class="stat-label">Qualified</div></div>
-        <div class="stat-box"><div class="stat-value" id="mCustomers">—</div><div class="stat-label">Customers</div></div>
-        <div class="stat-box"><div class="stat-value" id="mConversion">—</div><div class="stat-label">Conversion %</div></div>
+        <div class="stat-box"><div class="stat-value" id="dOverdueTasks">—</div><div class="stat-label">Overdue Tasks</div></div>
+        <div class="stat-box"><div class="stat-value" id="dOverdueRec" style="color:var(--danger)">—</div><div class="stat-label">Overdue Receivables</div></div>
+        <div class="stat-box"><div class="stat-value" id="dCash">—</div><div class="stat-label">Cash & Bank</div></div>
+        <div class="stat-box"><div class="stat-value" id="dOpenBills">—</div><div class="stat-label">Open Bills</div></div>
       </div>
 
       <div class="card">
@@ -468,11 +468,6 @@
           </div>
         </div>
         <div id="calBody"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">Pipeline by Stage</div>
-        <div id="stageBars"></div>
       </div>
     </main>
   </div>
@@ -537,34 +532,22 @@
 
   <script src="/public/js/app.js"></script>
   <script>
-    const STAGES = ['new', 'contacted', 'qualified', 'customer', 'lost'];
-    const STAGE_COLOR = { new: 'var(--text-muted)', contacted: 'var(--primary)', qualified: 'var(--warning)', customer: 'var(--success)', lost: 'var(--danger)' };
-
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') closeTaskOverlay();
     });
 
-    async function loadMetrics() {
-      try {
-        const m = await api('/api/clients/meta/metrics');
-        document.getElementById('mTotal').textContent = m.total;
-        document.getElementById('mQualified').textContent = m.qualified;
-        document.getElementById('mCustomers').textContent = m.customers;
-        document.getElementById('mConversion').textContent = m.conversion + '%';
+    const INR = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
-        const max = Math.max(1, ...STAGES.map(s => m.byStatus[s] || 0));
-        document.getElementById('stageBars').innerHTML = STAGES.map(s => {
-          const n = m.byStatus[s] || 0;
-          const pct = Math.round((n / max) * 100);
-          return `
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
-              <div style="width:90px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:var(--text-muted);">${s}</div>
-              <div style="flex:1; background:var(--bg); border-radius:4px; height:22px; overflow:hidden;">
-                <div style="width:${pct}%; height:100%; background:${STAGE_COLOR[s]}; transition:width 0.4s;"></div>
-              </div>
-              <div style="width:36px; text-align:right; font-weight:700; font-size:13px;">${n}</div>
-            </div>`;
-        }).join('');
+    async function loadDashboardKPIs() {
+      try {
+        const [fin, cb] = await Promise.all([
+          api('/api/finance/summary'),
+          api('/api/finance/cash-bank')
+        ]);
+        document.getElementById('dOverdueRec').textContent = INR(fin.overdue);
+        document.getElementById('dOpenBills').textContent  = fin.openBills;
+        const cashTotal = (cb.accounts || []).reduce((s, a) => s + (a.balance || 0), 0);
+        document.getElementById('dCash').textContent = INR(cashTotal);
       } catch (e) {}
     }
 
@@ -640,6 +623,12 @@
             const tasks = await api(`/api/tasks/today?scope=${taskScope}`);
             document.getElementById('taskCount').textContent = tasks.length;
             document.getElementById('collapsedCount').textContent = tasks.length;
+            const overdueCount = tasks.filter(t => t.due_date < today).length;
+            const odEl = document.getElementById('dOverdueTasks');
+            if (odEl) {
+              odEl.textContent = overdueCount;
+              odEl.style.color = overdueCount > 0 ? 'var(--danger)' : 'var(--success)';
+            }
             const hasToday = tasks.some(t => t.due_date === todayISO);
             document.getElementById('collapsedDot').style.display = hasToday ? 'block' : 'none';
             const list = document.getElementById('taskList');
@@ -1160,7 +1149,7 @@
     renderCalendar();
     }
 
-    loadMetrics();
+    loadDashboardKPIs();
     initTaskScope();
     renderCalendar();
   </script>

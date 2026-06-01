@@ -136,7 +136,7 @@
       <button class="fin-nav-btn active" data-tab="receivables" onclick="finTab('receivables')">Receivables</button>
       <button class="fin-nav-btn" data-tab="sales"        onclick="finTab('sales')">Sales Register</button>
       <button class="fin-nav-btn" data-tab="inventory"    onclick="finTab('inventory')">Inventory</button>
-      <button class="fin-nav-btn" data-tab="cashbank"     onclick="finTab('cashbank')">Financial Position</button>
+      <button class="fin-nav-btn" data-tab="cashbank"     onclick="finTab('cashbank')">Position</button>
       <button class="fin-nav-btn" data-tab="payables"     onclick="finTab('payables')">Payables</button>
     </div>
 
@@ -232,6 +232,19 @@
 
     <!-- ═══════════ CASH & BANK ═══════════ -->
     <div class="tab-pane" id="pane-cashbank">
+
+      <!-- P&L Snapshot — moved above cash/bank for headline context -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">This FY — Revenue &amp; Cost <span class="fin-i" tabindex="0" data-tip="P&amp;L account balances for this financial year. In Indian accounting these reset each April — so this reflects current FY only. Answers: Are we making gross profit? Where is most money going?">i</span></div>
+        <div class="stats-grid" id="pnlKpis" style="margin-bottom:16px">
+          <div class="stat-box"><div class="stat-value" id="pnl-revenue">—</div><div class="stat-label">Revenue</div></div>
+          <div class="stat-box"><div class="stat-value" id="pnl-cogs">—</div><div class="stat-label">Cost of Goods</div></div>
+          <div class="stat-box"><div class="stat-value" id="pnl-gp" style="color:var(--success)">—</div><div class="stat-label">Gross Profit</div></div>
+          <div class="stat-box"><div class="stat-value" id="pnl-opex">—</div><div class="stat-label">Operating Exp.</div></div>
+        </div>
+        <div class="analytics-grid" id="pnlBreakdown" style="display:none"></div>
+      </div>
+
       <div class="analytics-grid" style="margin-bottom:16px">
         <div class="card" style="margin-bottom:0">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">
@@ -246,23 +259,11 @@
         </div>
         <div class="card" style="margin-bottom:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Other Financial Positions</div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Other Positions</div>
             <span class="fin-i" tabindex="0" data-tip="Customer advances received (cash you hold but haven't earned yet) and tax liabilities (GST/IGST payable to government). Advances reduce your net receivables; tax liability reduces available cash.">i</span>
           </div>
           <div id="cbOtherContent"><p style="color:var(--text-muted);font-size:12px;">Loading…</p></div>
         </div>
-      </div>
-
-      <!-- P&L Snapshot -->
-      <div class="card" style="margin-bottom:16px">
-        <div class="card-title">This FY — Revenue &amp; Cost <span class="fin-i" tabindex="0" data-tip="P&amp;L account balances for this financial year. In Indian accounting these reset each April — so this reflects current FY only. Answers: Are we making gross profit? Where is most money going?">i</span></div>
-        <div class="stats-grid" id="pnlKpis" style="margin-bottom:16px">
-          <div class="stat-box"><div class="stat-value" id="pnl-revenue">—</div><div class="stat-label">Revenue</div></div>
-          <div class="stat-box"><div class="stat-value" id="pnl-cogs">—</div><div class="stat-label">Cost of Goods</div></div>
-          <div class="stat-box"><div class="stat-value" id="pnl-gp" style="color:var(--success)">—</div><div class="stat-label">Gross Profit</div></div>
-          <div class="stat-box"><div class="stat-value" id="pnl-opex">—</div><div class="stat-label">Operating Exp.</div></div>
-        </div>
-        <div class="analytics-grid" id="pnlBreakdown" style="display:none"></div>
       </div>
 
       <!-- Transaction History -->
@@ -307,7 +308,7 @@
       <div class="card" style="margin-bottom:16px">
         <div id="payables-container"></div>
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);line-height:1.6">
-          Balances from Tally ledgers only. Payment due dates available once purchase vouchers are synced.
+          Balances from Tally ledger closing totals. Bill-level aging will appear once payables settlement tracking is confirmed.
         </div>
       </div>
 
