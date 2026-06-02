@@ -395,17 +395,27 @@ router.post('/:id/confirm', async (req, res) => {
     [nowIST(), req.params.id]
   );
 
-  // Dispatch reminder task if expected date + contact are set
-  if (po.expected_dispatch_date && po.contact_id) {
-    await execute(
-      `INSERT INTO crm_tasks
-         (contact_id, title, due_date, assigned_to, created_by, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [po.contact_id,
-       `Dispatch PO ${po.po_number} — ${po.company_name}`,
-       po.expected_dispatch_date,
-       po.created_by, 'system', nowIST()]
+  // Robust Duplicate-Safe Delivery Task Generation
+  if (po.expected_dispatch_date) {
+    const dispatchTitle = `Dispatch PO ${po.po_number} — ${po.company_name || 'Unassigned Vendor'}`;
+    
+    // Check if an open reminder already exists for this specific dispatch action
+    const existingDispatchTask = await queryOne(
+      "SELECT id FROM crm_tasks WHERE title = ? AND status = 'open'",
+      [dispatchTitle]
     );
+
+    if (!existingDispatchTask) {
+      await execute(
+        `INSERT INTO crm_tasks
+           (contact_id, title, due_date, assigned_to, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [po.contact_id || null,
+         dispatchTitle,
+         po.expected_dispatch_date,
+         po.created_by || 'system', 'system', nowIST()]
+      );
+    }
   }
 
   res.json({ success: true, message: 'PO confirmed' });
@@ -434,18 +444,26 @@ router.post('/:id/dispatch', async (req, res) => {
     [dispatch_date, nowIST(), req.params.id]
   );
 
-  // Follow-up task 3 days after dispatch
-  if (po.contact_id) {
+  // Robust Duplicate-Safe Post-Dispatch Follow Up Task
+  const followUpTitle = `Post-dispatch follow up — PO ${po.po_number} (${po.company_name || 'Unassigned Vendor'})`;
+  
+  // Verify that a follow-up ticket isn't already active in the timeline pipeline matrix
+  const existingFollowUpTask = await queryOne(
+    "SELECT id FROM crm_tasks WHERE title = ? AND status = 'open'",
+    [followUpTitle]
+  );
+
+  if (!existingFollowUpTask) {
     const followUp = new Date(dispatch_date);
     followUp.setDate(followUp.getDate() + 3);
     await execute(
       `INSERT INTO crm_tasks
          (contact_id, title, due_date, assigned_to, created_by, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [po.contact_id,
-       `Post-dispatch follow up — PO ${po.po_number} (${po.company_name})`,
+      [po.contact_id || null,
+       followUpTitle,
        followUp.toISOString().substring(0, 10),
-       po.created_by, 'system', nowIST()]
+       po.created_by || 'system', 'system', nowIST()]
     );
   }
 
@@ -470,6 +488,29 @@ router.post('/:id/cancel', async (req, res) => {
     [nowIST(), req.params.id]
   );
   res.json({ success: true, message: 'PO cancelled' });
+});
+
+// DELETE PERMANENTLY — Secure table-cascade cleanup handler
+router.delete('/:id', async (req, res) => {
+  // Enforce security privilege level rules across destructive deletion pipelines
+  if (!['admin', 'manager'].includes(req.user?.role)) {
+    return res.status(403).json({ error: 'Not authorized to delete purchase orders' });
+  }
+
+  try {
+    const po = await queryOne('SELECT id FROM crm_purchase_orders WHERE id = ?', [req.params.id]);
+    if (!po) return res.status(404).json({ error: 'PO not found' });
+
+    // 1. Clear lines first to satisfy foreign key constraints safely
+    await execute('DELETE FROM crm_po_items WHERE po_id = ?', [req.params.id]);
+    
+    // 2. Clear core purchase order entry record
+    await execute('DELETE FROM crm_purchase_orders WHERE id = ?', [req.params.id]);
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

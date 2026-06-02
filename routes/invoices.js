@@ -317,7 +317,9 @@ async function parseInvoice(buffer, hint) {
   return normalizeExtraction(parsed, hint);
 }
 
-async function runExtraction(invoiceId, buffer, hint) {
+async function runExtraction(invoiceId, buffer, hint, chatId = null) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+
   try {
     let inv;
     try {
@@ -331,10 +333,6 @@ async function runExtraction(invoiceId, buffer, hint) {
       }
     }
 
-    // Purchase orders live in their own table with their own lifecycle —
-    // they never become Tally vouchers. Route the extracted PO into
-    // crm_purchase_orders (fuzzy-matching lines to the items master) and
-    // remove the placeholder crm_invoices row + its reading task.
     if ((hint === 'purchase_order' || inv.doc_type === 'purchase_order')) {
       const placeholder = await queryOne('SELECT uploaded_by, task_id FROM crm_invoices WHERE id=?', [invoiceId]);
       try {
@@ -344,12 +342,37 @@ async function runExtraction(invoiceId, buffer, hint) {
             [nowIST(), `PO ${po.po_number} imported — review`, placeholder.task_id]);
         }
         await execute('DELETE FROM crm_invoices WHERE id=?', [invoiceId]);
+
+        // Dispatch instant Telegram confirmation upon structural PO database commit
+        if (chatId && botToken) {
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: `✅ *PO Imported Successfully!*\n\nPurchase Order *${po.po_number || 'Draft'}* has been parsed and logged. Your matched items are waiting for validation in the pipeline setup lifecycle layout.`,
+              parse_mode: 'Markdown'
+            })
+          }).catch(e => console.error('Telegram notification routing crashed:', e.message));
+        }
       } catch (poErr) {
         console.error('PO import failed for', invoiceId, poErr.message);
         await execute(
           `UPDATE crm_invoices SET status='extract_failed', extract_error=? WHERE id=?`,
           ['PO import failed: ' + classifyExtractError(poErr.message), invoiceId]
         );
+
+        if (chatId && botToken) {
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: `❌ *PO Processing Halted*\n\nYour purchase order failed to resolve database alignment models: _${poErr.message}_`,
+              parse_mode: 'Markdown'
+            })
+          }).catch(() => {});
+        }
       }
       return;
     }
@@ -379,12 +402,39 @@ async function runExtraction(invoiceId, buffer, hint) {
     );
     const t = `Approve invoice${inv.invoice_no ? ' ' + inv.invoice_no : ''} — Rs.${inv.net_amount || '?'}`;
     await execute('UPDATE crm_tasks SET title=? WHERE invoice_id=?', [t, invoiceId]);
+
+    // Dispatch instant Telegram confirmation upon normal document status shift to 'pending'
+    if (chatId && botToken) {
+      const displayLabel = inv.invoice_no ? `Document No. *${inv.invoice_no}*` : 'Your dropped file';
+      const cleanTypeLabel = (inv.doc_type || 'Document').replace('_', ' ').toUpperCase();
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: `✅ *Processing Complete!*\n\n${displayLabel} has been successfully added to the system as a *${cleanTypeLabel}* and is awaiting your review and approval on the dashboard.`,
+          parse_mode: 'Markdown'
+        })
+      }).catch(e => console.error('Telegram notification routing crashed:', e.message));
+    }
   } catch (err) {
     console.error('Background extraction failed for', invoiceId, err.message);
     await execute(
       `UPDATE crm_invoices SET status='extract_failed', extract_error=? WHERE id=?`,
       [classifyExtractError(err.message), invoiceId]
     );
+
+    if (chatId && botToken) {
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: `❌ *Extraction Failed*\n\nWe encountered an error reading your document. Please verify its content matrix layouts directly inside your web dashboard portal panel trackers.`,
+          parse_mode: 'Markdown'
+        })
+      }).catch(() => {});
+    }
   }
 }
 
@@ -1026,8 +1076,8 @@ router.post('/telegram-webhook', async (req, res) => {
         const fileRes = await fetch(`https://api.telegram.org/file/bot${token}/${fileInfo.result.file_path}`);
         const buffer = Buffer.from(await fileRes.arrayBuffer());
 
-        // 4. Delegate to your production multimodal extraction worker pool asynchronously
-        runExtraction(invoiceId, buffer, hint);
+        // 4. Delegate to your production multimodal extraction worker pool asynchronously with active Chat ID state tracking variables
+        runExtraction(invoiceId, buffer, hint, chatId);
       } catch (err) {
         console.error('Telegram button event lifecycle processing failed:', err.message);
       }

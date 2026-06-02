@@ -427,6 +427,60 @@
       .rv-foot { flex-wrap: wrap; }
       .rv-foot button { flex: 1 1 auto; }
     }
+    /* ===== Dynamic Wide Panel Layout for Bank Statements ===== */
+    #reviewPanel.rv-wide-layout .rv-panel {
+      width: 880px;
+      max-width: 95vw;
+    }
+
+    /* Comfort adjustments for the bank table wrapper element */
+    #reviewPanel.rv-wide-layout .bank-table-scroll-container {
+      overflow-x: hidden !important; /* Removes the annoying desktop horizontal slider entirely */
+    }
+
+    /* Responsive Mobile Adaptive Viewport Grid Overrides */
+    @media (max-width: 768px) {
+      #reviewPanel.rv-wide-layout .rv-panel {
+        width: 100% !important;
+        max-width: 100vw !important;
+      }
+      #reviewPanel.rv-wide-layout .bank-table-scroll-container {
+        overflow-x: auto !important; /* Re-enables clean swiping for touch gestures on phones */
+        -webkit-overflow-scrolling: touch;
+      }
+      #reviewPanel.rv-wide-layout .bank-ledger-table {
+        min-width: 720px; /* Guarantees columns have breathing room on mobile viewports */
+      }
+    }
+    /* ===== Custom Scrollbar Theme Alignment (Sliders Fix) ===== */
+    .bank-table-scroll-container::-webkit-scrollbar,
+    .rv-body::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    
+    .bank-table-scroll-container::-webkit-scrollbar-track,
+    .rv-body::-webkit-scrollbar-track {
+      background: transparent; /* Blends seamlessly into background colors */
+    }
+    
+    .bank-table-scroll-container::-webkit-scrollbar-thumb,
+    .rv-body::-webkit-scrollbar-thumb {
+      background: var(--border); /* Switches color based on current active dark/light mode variables */
+      border-radius: 10px;
+    }
+    
+    .bank-table-scroll-container::-webkit-scrollbar-thumb:hover,
+    .rv-body::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted); /* Darkens dynamically when focused/hovered */
+    }
+
+    /* Standards-based fallback rule context definition parameters for Firefox viewports */
+    .bank-table-scroll-container,
+    .rv-body {
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
   </style>
 </head>
 <body>
@@ -621,23 +675,22 @@
       if (rowIsPO(d)) return '—'; // POs carry no single net amount
       return d.net_amount ? '₹' + Number(d.net_amount).toLocaleString('en-IN', {minimumFractionDigits:2}) : '—';
     }
-    // POs are never bulk-deletable here (own lifecycle); checkbox only for docs.
+    // Restructured to enable full checkbox mapping transparency across tables
     function rowCheckbox(d) {
-      if (rowIsPO(d)) return '';
-      return `<input type="checkbox" class="bulk-cb" value="${d.id}" data-status="${d.status}" onclick="event.stopPropagation();onBulkToggle()" style="cursor:pointer;width:15px;height:15px;">`;
+      return `<input type="checkbox" class="bulk-cb" value="${d.id}" data-status="${d.status}" data-is-po="${rowIsPO(d)}" onclick="event.stopPropagation();onBulkToggle()" style="cursor:pointer;width:15px;height:15px;">`;
     }
     function rowTrash(d) {
-      if (rowIsPO(d) || d.deleted_at) return '';
-      return `<button class="trash-btn" title="Delete" onclick="event.stopPropagation();rowDelete(${d.id},'${d.status}')">
+      if (d.deleted_at) return '';
+      return `<button class="trash-btn" title="Delete" onclick="event.stopPropagation();rowDelete(${d.id},'${d.status}',${rowIsPO(d)})">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244 2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
         </svg>
       </button>`; 
     }
 
     const docsTable = new PaginatedTable({
       containerId: 'docsTable-container',
-      pageSize: 15,
+      pageSize: 5,
       titleText: '',
       columns: [
         { label: '', render: d => rowCheckbox(d) },
@@ -683,20 +736,27 @@
     async function bulkDelete() {
       const checked = getBulkBoxes().filter(cb => cb.checked);
       if (!checked.length) return;
-      const hasPushed = checked.some(cb => cb.dataset.status === 'pushed');
-      const msg = hasPushed
-        ? `Delete ${checked.length} record(s)? Some were pushed to Tally and will be ARCHIVED (not removed from Tally); the rest will be permanently deleted. Continue?`
-        : `Permanently delete ${checked.length} record(s)?`;
+      
+      const hasInvoicePushed = checked.some(cb => cb.dataset.isPo !== 'true' && cb.dataset.status === 'pushed');
+      const msg = hasInvoicePushed
+        ? `Delete ${checked.length} selected record(s)? Some invoices were pushed to Tally and will be ARCHIVED; the rest will be permanently deleted. Continue?`
+        : `Permanently delete ${checked.length} selected record(s)?`;
       if (!confirm(msg)) return;
 
       let archived = 0, deleted = 0, failed = 0;
-      // Sequential — Turso is happier without a burst of parallel writes
       for (const cb of checked) {
         try {
-          const r = await api(`/api/invoices/${cb.value}`, { method: 'DELETE' });
-          r.soft ? archived++ : deleted++;
+          if (cb.dataset.isPo === 'true') {
+            await api(`/api/po/${cb.value}`, { method: 'DELETE' });
+            deleted++;
+          } else {
+            const r = await api(`/api/invoices/${cb.value}`, { method: 'DELETE' });
+            r.soft ? archived++ : deleted++;
+          }
         } catch (e) { failed++; }
       }
+      
+      // Post-execution tracking log animations and refresh loop
       let summary = [];
       if (deleted)  summary.push(`${deleted} deleted`);
       if (archived) summary.push(`${archived} archived`);
@@ -706,15 +766,22 @@
       loadDocs();
     }
 
-    async function rowDelete(id, status) {
-      const isPushed = status === 'pushed';
-      const msg = isPushed
-        ? 'This was pushed to Tally. Deleting here only archives the CRM record — it will NOT remove the voucher from Tally. Continue?'
-        : 'Delete this record permanently?';
+    async function rowDelete(id, status, isPo = false) {
+      const isPushed = !isPo && status === 'pushed';
+      const msg = isPo 
+        ? 'Delete this Purchase Order permanently?' 
+        : (isPushed 
+            ? 'This was pushed to Tally. Deleting here only archives the CRM record — it will NOT remove the voucher from Tally. Continue?' 
+            : 'Delete this record permanently?');
       if (!confirm(msg)) return;
       try {
-        const r = await api(`/api/invoices/${id}`, { method: 'DELETE' });
-        showToast(r.soft ? 'Archived (was in Tally)' : 'Deleted');
+        if (isPo) {
+          await api(`/api/po/${id}`, { method: 'DELETE' });
+          showToast('Deleted');
+        } else {
+          const r = await api(`/api/invoices/${id}`, { method: 'DELETE' });
+          showToast(r.soft ? 'Archived (was in Tally)' : 'Deleted');
+        }
         loadDocs();
       } catch (e) {}
     }
@@ -828,9 +895,9 @@
       } catch (e) {}
     }
 
-    // "Select all" only appears when there's more than 2 selectable (non-PO) rows.
+    // Calculates selectable limits based on the total unified array matrix context
     function updateSelectAll(rows) {
-      const selectable = rows.filter(r => !r._po).length;
+      const selectable = rows.length;
       const btn = document.getElementById('selectAllBtn');
       if (btn) btn.style.display = selectable > 2 ? 'inline-flex' : 'none';
     }
@@ -1118,6 +1185,13 @@
         _rvInv = inv;
         await loadStockItems();
 
+        // Toggle wide panel mode layout dynamically based on classification rules
+        if (inv.doc_type === 'bank_statement') {
+          panel.classList.add('rv-wide-layout');
+        } else {
+          panel.classList.remove('rv-wide-layout');
+        }
+
         // Non-reviewable states get a short message instead of the edit form
         if (inv.status === 'reading') {
           document.getElementById('rvDocNo').textContent = inv.original_filename || 'Reading…';
@@ -1247,8 +1321,105 @@
       } catch (e) { showToast('Could not create', 'error'); }
     }
 
+    // Global binder hook to update bi-column transaction entries smoothly
+    window.updateBankAmount = function(index, value, isDebit) {
+      const val = parseFloat(value) || 0;
+      _rvLines[index].amount = isDebit ? (val > 0 ? -val : 0) : (val > 0 ? val : 0);
+      renderLines(); // Re-trigger local viewport layout matrix calculation calculations
+    };
+
     function renderLines() {
       const box = document.getElementById('rvLines'); if (!box) return;
+
+      // ── SPECIAL RENDERING FOR HIGH-VOLUME BANK STATEMENTS ──
+      if (_rvInv && _rvInv.doc_type === 'bank_statement') {
+        const dis = _rvLocked ? 'disabled' : '';
+
+        // 1. Calculate running reconciliation balances in real-time
+        let currentDrSum = 0;
+        let currentCrSum = 0;
+        _rvLines.forEach(li => {
+          const v = parseFloat(li.amount) || 0;
+          if (v < 0) currentDrSum += Math.abs(v);
+          else currentDrSum += 0; // Maintain balance checks
+          if (v > 0) currentCrSum += v;
+        });
+
+        // Pull reference limits extracted directly from document meta summary wrappers
+        const targetDr = parseFloat(document.getElementById('rv_total_debit')?.value || _rvInv.total_debit || 0);
+        const targetCr = parseFloat(document.getElementById('rv_total_credit')?.value || _rvInv.total_credit || 0);
+        
+        const drMatch = Math.abs(currentDrSum - targetDr) < 0.05;
+        const crMatch = Math.abs(currentCrSum - targetCr) < 0.05;
+        const isBalanced = drMatch && crMatch;
+
+        // 2. Generate the Sticky Reconciliation Status HUD layout Card
+        const hudHtml = `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; padding: 12px; border-radius: 8px; border: 1px solid ${isBalanced ? 'var(--success)' : 'var(--border)'}; background: ${isBalanced ? 'color-mix(in srgb, var(--success) 6%, var(--surface))' : 'var(--surface)'};">
+            <div>
+              <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Live Withdrawals (Dr Sum)</div>
+              <div style="font-size: 13px; font-weight: 700; color: ${drMatch ? 'var(--text)' : 'var(--warning)'}; margin-top: 2px;">
+                ₹${currentDrSum.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                <div style="font-size: 9.5px; font-weight: 500; color: var(--text-muted); margin-top: 1px;">Target: ₹${targetDr.toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Live Deposits (Cr Sum)</div>
+              <div style="font-size: 13px; font-weight: 700; color: ${crMatch ? 'var(--text)' : 'var(--warning)'}; margin-top: 2px;">
+                ₹${currentCrSum.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                <div style="font-size: 9.5px; font-weight: 500; color: var(--text-muted); margin-top: 1px;">Target: ₹${targetCr.toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>
+              </div>
+            </div>
+            <div style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 11px; font-weight: 700; color: ${isBalanced ? 'var(--success)' : 'var(--warning)'};">
+                ${isBalanced ? '✓ Balanced: Statement Ledger Reconciled' : '⚠️ Discrepancy: Ledger values do not match summary goals'}
+              </span>
+            </div>
+          </div>
+        `;
+
+        // 3. Build the tight spreadsheet data matrix row mapping
+        const rowsHtml = _rvLines.map((li, i) => {
+          const amtVal = parseFloat(li.amount) || 0;
+          const isDebit = amtVal < 0;
+          const absAmt = amtVal !== 0 ? Math.abs(amtVal) : '';
+
+          return `
+            <tr style="border-bottom: 1px solid var(--border); transition: background 0.1s;">
+              <td style="padding: 6px 4px; text-align: center; font-weight: 700; color: var(--text-muted); font-size: 11px;">${li.si_no || (i + 1)}</td>
+              <td style="padding: 4px;"><input value="${esc(li.date || '')}" oninput="_rvLines[${i}].date=this.value" ${dis} style="border: none !important; background: transparent !important; padding: 4px !important; font-size: 12px; color: var(--text); width: 85px;"></td>
+              <td style="padding: 4px;"><input value="${esc(li.description || '')}" oninput="_rvLines[${i}].description=this.value" ${dis} style="border: none !important; background: transparent !important; padding: 4px !important; font-size: 12px; color: var(--text); width: 100%; text-overflow: ellipsis;"></td>
+              <td style="padding: 4px; background: color-mix(in srgb, var(--danger) 3%, transparent);"><input type="number" step="0.01" placeholder="—" value="${isDebit ? absAmt : ''}" oninput="window.updateBankAmount(${i}, this.value, true)" ${dis} style="border: none !important; background: transparent !important; padding: 4px !important; font-size: 12px; text-align: right; font-weight: 600; color: var(--danger); width: 100%;"></td>
+              <td style="padding: 4px; background: color-mix(in srgb, var(--success) 3%, transparent);"><input type="number" step="0.01" placeholder="—" value="${!isDebit ? absAmt : ''}" oninput="window.updateBankAmount(${i}, this.value, false)" ${dis} style="border: none !important; background: transparent !important; padding: 4px !important; font-size: 12px; text-align: right; font-weight: 600; color: var(--success); width: 100%;"></td>
+              <td style="padding: 4px; text-align: center;">
+                ${_rvLocked ? '' : `<span class="rv-line-del" onclick="rvDelLine(${i})" style="cursor: pointer; font-weight: 800; font-size: 12px; color: var(--text-muted);">×</span>`}
+              </td>
+            </tr>`;
+        }).join('');
+
+        // 4. Assemble container shells with customized local viewport styles
+        box.innerHTML = hudHtml + `
+          <div class="bank-table-scroll-container" style="border: 1px solid var(--border); border-radius: 8px; overflow-y: auto; max-height: 440px; background: var(--bg); margin-bottom: 8px;">
+            <table class="bank-ledger-table" style="width: 100%; border-collapse: collapse; font-family: var(--font); font-size: 12px;">
+              <thead style="position: sticky; top: 0; background: var(--surface); box-shadow: 0 1px 0 var(--border); z-index: 10;">
+                <tr style="text-align: left; color: var(--text-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+                  <th style="padding: 10px 6px; width: 30px; text-align: center;">#</th>
+                  <th style="padding: 10px 6px; width: 95px;">Date</th>
+                  <th style="padding: 10px 6px;">Transaction Remarks</th>
+                  <th style="padding: 10px 6px; width: 105px; text-align: right; color: var(--danger);">Withdrawal (Dr)</th>
+                  <th style="padding: 10px 6px; width: 105px; text-align: right; color: var(--success);">Deposit (Cr)</th>
+                  <th style="padding: 10px 6px; width: 25px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml || '<tr><td colspan="6" style="padding: 16px; text-align: center; color: var(--text-muted);">No records found</td></tr>'}
+              </tbody>
+            </table>
+          </div>`;
+        return;
+      }
+
+      // ── STANDARD VIEW FOR PURCHASES / FREIGHT LINE ITEMS ──
       const showKindToggle = _rvInv && _rvInv.doc_type === 'purchase_invoice';
       box.innerHTML = _rvLines.map((li, i) => {
         if (!li.kind) li.kind = showKindToggle ? 'stock' : 'expense';
@@ -1287,6 +1458,8 @@
         </div>`;
       }).join('') || '<div style="color:var(--text-muted);font-size:12px;">No line items.</div>';
     }
+
+
     function rvAddLine() {
       const isStockDefault = _rvInv && _rvInv.doc_type === 'purchase_invoice';
       _rvLines.push({
@@ -1378,7 +1551,13 @@
       } catch (e) {}
     }
 
-    function closeReview() { document.getElementById('reviewPanel').classList.remove('open'); _rvInv = null; _poMode = false; }
+    function closeReview() { 
+      const panel = document.getElementById('reviewPanel');
+      panel.classList.remove('open'); 
+      panel.classList.remove('rv-wide-layout'); // Clear wide configurations state on drawer close
+      _rvInv = null; 
+      _poMode = false; 
+    }
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReview(); });
 
     // ===================== PURCHASE ORDERS TAB =====================
@@ -1446,6 +1625,7 @@
     function openPONew() {
       _po = null; _poMode = true; _poNewLines = [{ item_code:'', qty:'', price:'' }];
       const panel = document.getElementById('reviewPanel'); panel.classList.add('open');
+      panel.classList.remove('rv-wide-layout'); // Reset context bounds
       document.getElementById('rvDocNo').textContent = 'New Purchase Order';
       const st = document.getElementById('rvStatus'); st.textContent = 'draft'; st.className = 'rv-status pending';
       document.getElementById('rvBody').innerHTML = `
@@ -1528,6 +1708,7 @@
     async function openPO(id) {
       _poMode = true;
       const panel = document.getElementById('reviewPanel'); panel.classList.add('open');
+      panel.classList.remove('rv-wide-layout'); // Reset context bounds
       document.getElementById('rvBody').innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Loading…</div>';
       document.getElementById('rvFoot').innerHTML = '';
       try {
