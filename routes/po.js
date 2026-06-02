@@ -76,7 +76,7 @@ async function insertPO({ po_number, po_source, company_id, contact_id, order_da
         `INSERT INTO crm_po_items
            (po_id, item_code, quantity_ordered, unit_price, notes)
          VALUES (?, ?, ?, ?, ?)`,
-        [poId, line.item_code || null, line.quantity_ordered,
+        [poId, line.item_code || '', line.quantity_ordered,
          line.unit_price || null, line.notes || null]
       );
     }
