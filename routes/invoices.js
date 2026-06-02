@@ -974,7 +974,7 @@ router.post('/telegram-webhook', async (req, res) => {
         [`Review Telegram upload: ${filename}`, nowIST().substring(0, 10), nowIST(), invoiceId]
       );
 
-      // Instantly modify the Telegram message to give visual progress confirmation
+      // Instantly modify the Telegram message to give visual progress confirmation.
       await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
