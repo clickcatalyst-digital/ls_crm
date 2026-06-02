@@ -10,10 +10,194 @@
   <title>Clients | LS CRM</title>
   <link rel="stylesheet" href="/public/css/style.css">
   <style>
-    .panel-backdrop {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-      z-index: 400; display: none;
+    /* ===== KPI + pipeline combined row ===== */
+    .clients-overview {
+      display: grid; grid-template-columns: repeat(4, 1fr) 1.4fr; gap: 12px; margin-bottom: 20px;
     }
+    .clients-overview .stat-box {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px 18px; display: flex; flex-direction: column; justify-content: center;
+    }
+    .clients-overview .stat-value { font-size: 26px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+    .clients-overview .stat-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--text-muted); margin-top: 6px;
+    }
+    .pipeline-box {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px 18px; grid-column: 5; grid-row: 1;
+    }
+    .pipeline-box .pb-title {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--text-muted); margin-bottom: 12px;
+    }
+    .pipeline-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+    .pipeline-row:last-child { margin-bottom: 0; }
+    .pipeline-row .pr-label {
+      width: 72px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.3px; color: var(--text-muted); flex-shrink: 0;
+    }
+    .pipeline-row .pr-track { flex: 1; background: var(--bg); border-radius: 4px; height: 16px; overflow: hidden; }
+    .pipeline-row .pr-fill { height: 100%; transition: width 0.5s ease; border-radius: 4px; }
+    .pipeline-row .pr-num { width: 30px; text-align: right; font-weight: 700; font-size: 12px; flex-shrink: 0; }
+
+    @media (max-width: 900px) {
+      .clients-overview { grid-template-columns: repeat(2, 1fr); }
+      .pipeline-box { grid-column: 1 / -1; grid-row: auto; }
+    }
+    @media (max-width: 520px) {
+      .clients-overview { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* ===== Toolbar (left / center / right) ===== */
+    .clients-toolbar {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .ct-left { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .clients-toolbar .search-wrap { margin: 0 auto; }
+    .clients-toolbar .filter-toggle { margin-left: auto; }
+
+    .select-all-btn {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-muted); font-family: var(--font); font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.4px; padding: 8px 14px;
+      cursor: pointer; flex-shrink: 0; transition: all 0.15s;
+      display: inline-flex; align-items: center;
+    }
+    .select-all-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* ===== Search bar ===== */
+    .search-wrap { position: relative; flex: 1; min-width: 160px; max-width: 380px; }
+    .search-ico {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      pointer-events: none; color: var(--text-muted);
+      display: flex; align-items: center; transition: color 0.2s, filter 0.2s;
+    }
+    .search-wrap:hover .search-ico, .search-wrap:focus-within .search-ico {
+      color: var(--primary); filter: drop-shadow(0 0 5px var(--primary));
+    }
+    .search-input {
+      width: 100%; box-sizing: border-box; font-family: var(--font); font-size: 13px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); padding: 8px 10px 8px 34px; transition: border-color 0.15s;
+    }
+    .search-input:focus { outline: none; border-color: var(--primary); }
+    .search-input::placeholder { color: var(--text-muted); }
+
+    /* ===== Filter toggle button ===== */
+    .filter-toggle {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-muted); font-family: var(--font); font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.4px; padding: 8px 12px;
+      cursor: pointer; flex-shrink: 0;
+      display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s;
+    }
+    .filter-toggle:hover { border-color: var(--primary); color: var(--primary); }
+    .filter-toggle.has-filters {
+      border-color: var(--primary); color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 8%, var(--bg));
+    }
+    .filter-badge {
+      background: var(--primary); color: #fff; font-size: 9px; font-weight: 800;
+      min-width: 16px; height: 16px; border-radius: 8px; padding: 0 3px;
+      display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+    }
+
+    /* ===== Collapsible filter panel ===== */
+    .filter-panel {
+      max-height: 0; overflow: hidden; opacity: 0; margin-bottom: 0;
+      transition: max-height 0.28s ease, opacity 0.2s, margin 0.2s;
+    }
+    .filter-panel.open { max-height: 420px; opacity: 1; margin-bottom: 16px; }
+    .filter-panel-inner {
+      display: grid; grid-template-columns: 1fr 1fr auto;
+      gap: 16px 16px; align-items: end;
+      padding: 18px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border); border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .fp-field { display: flex; flex-direction: column; gap: 6px; }
+    .fp-field label {
+      font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--text-muted);
+    }
+    .fp-field select, .fp-field input[type="date"] {
+      font-family: var(--font); font-size: 12.5px; font-weight: 500;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); padding: 9px 12px;
+      transition: border-color 0.15s, box-shadow 0.15s; cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+    }
+    .fp-field select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
+    }
+    .fp-field select:hover, .fp-field input[type="date"]:hover { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); }
+    .fp-field select:focus, .fp-field input[type="date"]:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent);
+    }
+    .fp-clear {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text-muted); font-family: var(--font); font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.4px; padding: 9px 16px;
+      cursor: pointer; white-space: nowrap; transition: all 0.15s; align-self: end;
+    }
+    .fp-clear:hover { border-color: var(--danger); color: var(--danger); background: color-mix(in srgb, var(--danger) 6%, var(--bg)); }
+    .fp-row2 {
+      grid-column: 1/-1; display: flex; align-items: center; justify-content: flex-start;
+      gap: 12px; flex-wrap: wrap;
+      padding-top: 14px; border-top: 1px solid var(--border); margin-top: 2px;
+    }
+    .fp-row2 .status-pills { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+
+    /* ===== Status pills ===== */
+    .status-pills .pill {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-muted); font-family: var(--font); font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 14px; cursor: pointer; transition: all 0.15s;
+    }
+    .status-pills .pill.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    @media (max-width: 768px) {
+      .clients-toolbar { gap: 10px; }
+      .ct-left { width: 100%; order: -1; }
+      .ct-left .btn { flex: 1; }
+      .clients-toolbar .search-wrap { order: 2; max-width: 100%; margin: 0; }
+      .clients-toolbar .filter-toggle { order: 3; }
+      .filter-panel-inner { grid-template-columns: 1fr 1fr; }
+      .fp-clear { grid-column: 1/-1; }
+    }
+
+    /* ===== Add overlay ===== */
+    .add-overlay {
+      position: fixed; inset: 0; z-index: 920; background: rgba(0,0,0,0.45);
+      display: none; align-items: flex-start; justify-content: center;
+      opacity: 0; transition: opacity 0.18s; overflow-y: auto; padding: 7vh 16px 24px;
+    }
+    .add-overlay.open { display: flex; opacity: 1; }
+    .add-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      width: 640px; max-width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      transform: translateY(12px); transition: transform 0.18s; overflow: hidden;
+    }
+    .add-overlay.open .add-card { transform: translateY(0); }
+    .add-head { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .add-head .ah-title { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+    .add-head .ah-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .add-close { background: none; border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-muted); width: 30px; height: 30px; cursor: pointer; font-family: var(--font); font-size: 16px; flex-shrink: 0; }
+    .add-close:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+    .add-body { padding: 22px; }
+    .add-foot { padding: 16px 22px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+
+    @media (max-width: 640px) {
+      .add-overlay { padding: 0; align-items: stretch; }
+      .add-card { width: 100%; max-width: 100%; border-radius: 0; min-height: 100vh; }
+    }
+
+    /* ===== Detail panel ===== */
+    .panel-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 400; display: none; }
     .panel-backdrop.open { display: block; }
     .detail-panel {
       position: fixed; top: 0; right: 0; height: 100vh; width: 460px; max-width: 92vw;
@@ -22,13 +206,8 @@
       overflow-y: auto; padding: 24px;
     }
     .detail-panel.open { transform: translateX(0); }
-    .panel-close {
-      background: none; border: none; color: var(--text-muted); cursor: pointer;
-      font-size: 20px; float: right; line-height: 1;
-    }
-    .note-entry {
-      border-left: 2px solid var(--border); padding: 8px 0 8px 12px; margin-bottom: 10px;
-    }
+    .panel-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px; float: right; line-height: 1; }
+    .note-entry { border-left: 2px solid var(--border); padding: 8px 0 8px 12px; margin-bottom: 10px; }
     .note-entry .note-meta { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
     .note-entry .note-body { font-size: 13px; margin-top: 3px; white-space: pre-wrap; }
     [data-theme="dark"] .detail-panel { box-shadow: -8px 0 24px rgba(0,0,0,0.4); }
@@ -77,24 +256,84 @@
       <p>Search, add, and trace your contacts</p>
     </div>
 
-    <div class="stats-grid" style="margin-bottom:16px">
+    <!-- KPI + Pipeline combined -->
+    <div class="clients-overview">
       <div class="stat-box"><div class="stat-value" id="mTotal">—</div><div class="stat-label">Total Contacts</div></div>
       <div class="stat-box"><div class="stat-value" id="mQualified">—</div><div class="stat-label">Qualified</div></div>
       <div class="stat-box"><div class="stat-value" id="mCustomers">—</div><div class="stat-label">Customers</div></div>
       <div class="stat-box"><div class="stat-value" id="mConversion">—</div><div class="stat-label">Conversion %</div></div>
-    </div>
-
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-title">Pipeline by Stage</div>
-      <div id="stageBars"></div>
-    </div>
-
-    <!-- ADD CLIENT -->
-    <div class="card">
-      <div class="card-title" style="cursor:pointer;" onclick="document.getElementById('addForm').style.display = document.getElementById('addForm').style.display==='none'?'block':'none'">
-        + Add New Client <span style="float:right; font-size:10px;">click to toggle</span>
+      <div class="pipeline-box">
+        <div class="pb-title">Pipeline by Stage</div>
+        <div id="stageBars"></div>
       </div>
-      <div id="addForm" style="display:none;">
+    </div>
+
+    <!-- TOOLBAR + TABLE -->
+    <div class="card">
+      <div class="clients-toolbar">
+        <div class="ct-left">
+          <button class="btn btn-primary btn-sm" onclick="openAdd()">+ Add</button>
+          <button class="select-all-btn" id="selectAllBtn" onclick="bulkSelectAll()" style="display:none;">Select all</button>
+        </div>
+        <div class="search-wrap">
+          <span class="search-ico">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
+            </svg>
+          </span>
+          <input class="search-input" id="searchInput" placeholder="Search name, company, or email…" oninput="onSearch(this.value)">
+        </div>
+        <button class="filter-toggle" id="filterToggle" onclick="toggleFilterPanel()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"/>
+          </svg>
+          Filters
+        </button>
+      </div>
+
+      <div class="filter-panel" id="filterPanel">
+        <div class="filter-panel-inner">
+          <div class="fp-field">
+            <label>Product</label>
+            <select id="fpProduct" onchange="onFilterChange()">
+              <option value="">All products</option>
+            </select>
+          </div>
+          <div class="fp-field">
+            <label>Designation</label>
+            <select id="fpDesignation" onchange="onFilterChange()">
+              <option value="">All designations</option>
+            </select>
+          </div>
+          <button class="fp-clear" onclick="clearFilters()">Clear</button>
+          <div class="fp-row2">
+            <div class="status-pills" id="statusPills">
+              <button class="pill active" data-status="" onclick="setStatus('')">All</button>
+              <button class="pill" data-status="new" onclick="setStatus('new')">New</button>
+              <button class="pill" data-status="contacted" onclick="setStatus('contacted')">Contacted</button>
+              <button class="pill" data-status="qualified" onclick="setStatus('qualified')">Qualified</button>
+              <button class="pill" data-status="customer" onclick="setStatus('customer')">Customer</button>
+              <button class="pill" data-status="lost" onclick="setStatus('lost')">Lost</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="clientsTable-container"></div>
+    </div>
+  </div>
+
+  <!-- ADD CLIENT OVERLAY -->
+  <div id="addOverlay" class="add-overlay" onclick="if(event.target===this)closeAdd()">
+    <div class="add-card">
+      <div class="add-head">
+        <div>
+          <div class="ah-title">Add New Client</div>
+          <div class="ah-sub">Create a contact and optionally schedule a first touchpoint</div>
+        </div>
+        <button class="add-close" onclick="closeAdd()">&times;</button>
+      </div>
+      <div class="add-body">
         <div class="form-row-3">
           <div class="form-group"><label>POC Name *</label><input type="text" id="aPoc" class="form-control" placeholder="Contact person"></div>
           <div class="form-group"><label>Company</label><input type="text" id="aCompany" class="form-control" placeholder="Company name"></div>
@@ -122,29 +361,12 @@
           </div>
         </div>
         <div class="form-group"><label>First Call Summary (optional)</label><input type="text" id="aNote" class="form-control" placeholder="Notes from first contact"></div>
+      </div>
+      <div class="add-foot">
+        <button class="btn btn-ghost" onclick="closeAdd()">Cancel</button>
         <button class="btn btn-primary" onclick="addClient()">Add Client</button>
       </div>
     </div>
-
-    <!-- SEARCH -->
-    <div class="card">
-      <div class="form-row">
-        <div class="form-group"><label>Search</label><input type="text" id="sQuery" class="form-control" placeholder="Name, company, or email"></div>
-        <div class="form-group"><label>Status</label>
-          <select id="sStatus" class="form-control">
-            <option value="">All</option><option value="new">New</option><option value="contacted">Contacted</option>
-            <option value="qualified">Qualified</option><option value="customer">Customer</option><option value="lost">Lost</option>
-          </select>
-        </div>
-      </div>
-      <div class="btn-row">
-        <button class="btn btn-primary" onclick="loadClients()">Search</button>
-        <button class="btn btn-ghost" onclick="document.getElementById('sQuery').value='';document.getElementById('sStatus').value='';loadClients()">Clear</button>
-      </div>
-    </div>
-
-    <!-- TABLE -->
-    <div class="card"><div id="clientsTable-container"></div></div>
   </div>
 
   <!-- DETAIL PANEL -->
@@ -157,6 +379,13 @@
   <script src="/public/js/app.js"></script>
   <script>
     const STATUS_BADGE = { new:'badge-warning', contacted:'badge-warning', qualified:'badge-success', customer:'badge-success', lost:'badge-danger' };
+
+    // ===== Filter state =====
+    let searchQuery     = '';
+    let statusFilter    = '';
+    let filterProduct   = '';
+    let filterDesig     = '';
+    let _allClients     = [];   // last loaded full set (client-side filtered)
 
     const clientsTable = new PaginatedTable({
       containerId: 'clientsTable-container',
@@ -173,11 +402,13 @@
 
     let productsCache = [];
     let assignableCache = [];
+
     async function loadProducts() {
       try {
         productsCache = await api('/api/products');
-        document.getElementById('aProduct').innerHTML = '<option value="">— None —</option>' +
-          productsCache.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+        const opts = productsCache.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+        document.getElementById('aProduct').innerHTML = '<option value="">— None —</option>' + opts;
+        document.getElementById('fpProduct').innerHTML = '<option value="">All products</option>' + opts;
       } catch (e) {}
     }
     async function loadAssignees() {
@@ -191,14 +422,110 @@
       } catch (e) {}
     }
 
-    async function loadClients() {
-        const params = new URLSearchParams();
-        const q = document.getElementById('sQuery').value.trim();
-        const status = document.getElementById('sStatus').value;
-        if (q) params.set('q', q);
-        if (status) params.set('status', status);
-        try { clientsTable.load(await api(`/api/clients?${params}`)); } catch (e) {}
+    // ===== Search / filter handlers =====
+    let _searchDebounce = null;
+    function onSearch(val) {
+      searchQuery = val.trim().toLowerCase();
+      clearTimeout(_searchDebounce);
+      _searchDebounce = setTimeout(loadClients, 180); // instant-as-you-type, lightly debounced
+    }
+
+    function setStatus(s) {
+      statusFilter = s;
+      document.querySelectorAll('#statusPills .pill').forEach(b => b.classList.toggle('active', b.dataset.status === s));
+      loadClients();
+    }
+
+    function toggleFilterPanel() {
+      const panel = document.getElementById('filterPanel');
+      const btn   = document.getElementById('filterToggle');
+      panel.classList.toggle('open');
+      btn.classList.toggle('has-filters', panel.classList.contains('open') || filterProduct || filterDesig);
+    }
+
+    function onFilterChange() {
+      filterProduct = document.getElementById('fpProduct').value;
+      filterDesig   = document.getElementById('fpDesignation').value;
+      updateFilterBadge();
+      loadClients();
+    }
+
+    function updateFilterBadge() {
+      const count = [filterProduct, filterDesig].filter(Boolean).length;
+      const btn = document.getElementById('filterToggle');
+      if (!btn) return;
+      const old = btn.querySelector('.filter-badge');
+      if (old) old.remove();
+      if (count > 0) {
+        btn.insertAdjacentHTML('beforeend', `<span class="filter-badge">${count}</span>`);
+        btn.classList.add('has-filters');
+      } else {
+        btn.classList.remove('has-filters');
+      }
+    }
+
+    function clearFilters() {
+      filterProduct = ''; filterDesig = '';
+      document.getElementById('fpProduct').value = '';
+      document.getElementById('fpDesignation').value = '';
+      updateFilterBadge();
+      loadClients();
+    }
+
+    // Designation dropdown is populated from whatever the dataset contains.
+    function refreshDesignationOptions(rows) {
+      const sel = document.getElementById('fpDesignation');
+      if (!sel) return;
+      const current = sel.value;
+      const desigs = [...new Set(rows.map(c => (c.designation || '').trim()).filter(Boolean))].sort();
+      sel.innerHTML = '<option value="">All designations</option>' +
+        desigs.map(d => `<option value="${esc(d)}" ${d===current?'selected':''}>${esc(d)}</option>`).join('');
+    }
+
+    function applyClientFilters(rows) {
+      return rows.filter(c => {
+        if (statusFilter && c.status !== statusFilter) return false;
+        if (filterProduct && String(c.product_id) !== String(filterProduct)) return false;
+        if (filterDesig && (c.designation || '').trim() !== filterDesig) return false;
+        if (searchQuery) {
+          const hay = `${c.poc_name||''} ${c.company_name||''} ${c.email||''}`.toLowerCase();
+          if (!hay.includes(searchQuery)) return false;
+        }
         return true;
+      });
+    }
+
+    async function loadClients() {
+      // Status goes to the server (existing API supports it); search + product +
+      // designation are applied client-side over the returned rows.
+      const params = new URLSearchParams();
+      if (statusFilter) params.set('status', statusFilter);
+      try {
+        const rows = await api(`/api/clients?${params}`);
+        _allClients = rows;
+        refreshDesignationOptions(rows);
+        const filtered = applyClientFilters(rows);
+        clientsTable.load(filtered);
+        updateSelectAll(filtered);
+      } catch (e) {}
+      return true;
+    }
+
+    // "Select all" placeholder — appears when there's a meaningful number of rows.
+    // (Bulk actions for clients can be wired here later.)
+    function updateSelectAll(rows) {
+      const btn = document.getElementById('selectAllBtn');
+      if (btn) btn.style.display = rows.length > 2 ? 'inline-flex' : 'none';
+    }
+    function bulkSelectAll() { /* reserved for future bulk client actions */ }
+
+    // ===== Add overlay =====
+    function openAdd() {
+      document.getElementById('addOverlay').classList.add('open');
+      document.getElementById('aPoc').focus();
+    }
+    function closeAdd() {
+      document.getElementById('addOverlay').classList.remove('open');
     }
 
     async function addClient() {
@@ -219,11 +546,13 @@
           next_touchpoint_assignee: (document.getElementById('aAssignee')?.value || null)
         }});
         showToast(`${poc} added`);
-        document.querySelectorAll('#addForm input').forEach(i => i.value = '');
+        document.querySelectorAll('#addOverlay input').forEach(i => i.value = '');
+        closeAdd();
         loadClients();
       } catch (e) {}
     }
 
+    // ===== Detail panel =====
     async function openClient(id) {
       try {
         const c = await api(`/api/clients/${id}`);
@@ -255,17 +584,17 @@
 
           <div class="card-title" style="margin-top:24px;">Call Summary Thread</div>
           <div class="form-group">
-        <textarea id="newNote" class="form-control" rows="2" placeholder="Add a call summary / note…"></textarea>
-        </div>
-        <div class="form-row" style="margin-top:6px;">
-        <div class="form-group" style="margin-bottom:0;">
-            <input type="date" id="newTouchDate" class="form-control" placeholder="Next touchpoint">
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-            <input type="text" id="newTouchTitle" class="form-control" placeholder="e.g. Follow-up call">
-        </div>
-        </div>
-        <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="addNote(${c.id})">Log Note & Schedule</button>
+            <textarea id="newNote" class="form-control" rows="2" placeholder="Add a call summary / note…"></textarea>
+          </div>
+          <div class="form-row" style="margin-top:6px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <input type="date" id="newTouchDate" class="form-control" placeholder="Next touchpoint">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <input type="text" id="newTouchTitle" class="form-control" placeholder="e.g. Follow-up call">
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="addNote(${c.id})">Log Note & Schedule</button>
           <div style="margin-top:16px;" id="notesThread">
             ${c.notes.length ? c.notes.map(n => `
               <div class="note-entry">
@@ -284,6 +613,10 @@
       document.getElementById('panelBackdrop').classList.remove('open');
     }
 
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closePanel(); closeAdd(); }
+    });
+
     async function saveClient(id) {
       try {
         await api(`/api/clients/${id}`, { method: 'PUT', body: {
@@ -299,24 +632,25 @@
     }
 
     async function addNote(id) {
-        const body = document.getElementById('newNote').value.trim();
-        const touchDate = document.getElementById('newTouchDate').value;
-        const touchTitle = document.getElementById('newTouchTitle').value.trim();
-        if (!body) return showToast('Write something first', 'error');
-        try {
-            await api(`/api/clients/${id}/notes`, { method: 'POST', body: { body } });
-            if (touchDate) {
-            await api('/api/tasks', { method: 'POST', body: {
-                contact_id: id,
-                title: touchTitle || 'Follow up',
-                due_date: touchDate
-            }});
-            }
-            showToast(touchDate ? 'Note logged & touchpoint scheduled' : 'Note added');
-            openClient(id);
-        } catch (e) {}
+      const body = document.getElementById('newNote').value.trim();
+      const touchDate = document.getElementById('newTouchDate').value;
+      const touchTitle = document.getElementById('newTouchTitle').value.trim();
+      if (!body) return showToast('Write something first', 'error');
+      try {
+        await api(`/api/clients/${id}/notes`, { method: 'POST', body: { body } });
+        if (touchDate) {
+          await api('/api/tasks', { method: 'POST', body: {
+            contact_id: id,
+            title: touchTitle || 'Follow up',
+            due_date: touchDate
+          }});
+        }
+        showToast(touchDate ? 'Note logged & touchpoint scheduled' : 'Note added');
+        openClient(id);
+      } catch (e) {}
     }
 
+    // ===== Metrics + pipeline =====
     const STAGES = ['new', 'contacted', 'qualified', 'customer', 'lost'];
     const STAGE_COLOR = { new: 'var(--text-muted)', contacted: 'var(--primary)', qualified: 'var(--warning)', customer: 'var(--success)', lost: 'var(--danger)' };
 
@@ -332,12 +666,10 @@
           const n = m.byStatus[s] || 0;
           const pct = Math.round((n / max) * 100);
           return `
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
-              <div style="width:90px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:var(--text-muted);">${s}</div>
-              <div style="flex:1; background:var(--bg); border-radius:4px; height:22px; overflow:hidden;">
-                <div style="width:${pct}%; height:100%; background:${STAGE_COLOR[s]}; transition:width 0.4s;"></div>
-              </div>
-              <div style="width:36px; text-align:right; font-weight:700; font-size:13px;">${n}</div>
+            <div class="pipeline-row">
+              <div class="pr-label">${s}</div>
+              <div class="pr-track"><div class="pr-fill" style="width:${pct}%; background:${STAGE_COLOR[s]};"></div></div>
+              <div class="pr-num">${n}</div>
             </div>`;
         }).join('');
       } catch (e) {}
@@ -347,10 +679,11 @@
     loadProducts();
     loadAssignees();
     loadClients().then(() => {
-        const openId = new URLSearchParams(window.location.search).get('open');
-        if (openId) openClient(parseInt(openId));
+      const openId = new URLSearchParams(window.location.search).get('open');
+      if (openId) openClient(parseInt(openId));
     });
   </script>
+
   <nav class="bottom-nav">
     <a href="/">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
@@ -365,8 +698,8 @@
       Finance
     </a>
     <a href="/docs">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
-        Docs
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+      Docs
     </a>
   </nav>
 </body>

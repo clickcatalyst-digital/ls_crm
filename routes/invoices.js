@@ -6,6 +6,7 @@ const express = require('express');
 const router  = express.Router();
 const multer  = require('multer');
 const { queryAll, queryOne, execute, nowIST } = require('../db/schema');
+const { createPOFromExtraction } = require('./po');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
@@ -53,8 +54,42 @@ const BANK_LEDGER        = 'South Indian Bank';
 const SUSPENSE_LEDGER    = 'Suspense A/c';
 const TALLY_COMPANY_NAME = '';
 
-const EXTRACTION_PROMPT = `You are a precise data extraction system for Indian GST documents.
-Extract fields and return ONLY raw JSON (no markdown, no prose). Use null for any field not present:
+// const EXTRACTION_PROMPT = `You are a precise data extraction system for Indian GST documents.
+// Extract fields and return ONLY raw JSON (no markdown, no prose). Use null for any field not present:
+// {
+//   "doc_type": "freight_invoice | purchase_invoice | bill_of_entry | purchase_order | bank_statement | unknown",
+//   "invoice_no": string|null, "invoice_date": string|null,
+//   "party_name": string|null, "party_gstin": string|null, "buyer_gstin": string|null,
+//   "place_of_supply": string|null, "mawb_no": string|null, "flight_no": string|null,
+//   "commodity": string|null, "origin_airport": string|null, "dest_airport": string|null,
+//   "gross_weight": number|null, "supplier_ref": string|null,
+//   "taxable_value": number|null, "cgst": number|null, "sgst": number|null, "igst": number|null,
+//   "total_tax": number|null, "net_amount": number|null,
+//   "delivery_date": string|null,
+//   "account_no": string|null, "statement_from": string|null, "statement_to": string|null,
+//   "opening_balance": number|null, "closing_balance": number|null,
+//   "total_debit": number|null, "total_credit": number|null,
+//   "line_items": [{ "description": string, "hsn": string|null, "qty": number|null, "uom": string|null, "rate": number|null, "amount": number|null, "date": string|null, "delivery_date": string|null }]
+// }
+// Rules:
+// - party_name is ALWAYS the OTHER company — the issuer/counterparty — NEVER "L S Technologies" / "LS Technologies" (that entity is our client and is the BUYER on every document, regardless of how prominently its name appears).
+// - Identify the issuer by the LETTERHEAD/logo at the top, the "For, <COMPANY>" signature block, and the issuer's own GSTIN — NOT by the "M/S." or "Bill To" addressee, which is the buyer (L S Technologies).
+// - A document addressed "M/S. L S TECHNOLOGIES" is addressed TO our client; the party_name is whoever ISSUED it (e.g. the company in the letterhead).
+// - For invoices/bills: party_name is the supplier issuing it. For a purchase_order: party_name is the company in the LETTERHEAD who issued this PO (they are the buyer placing the order with LS Technologies as their vendor).
+// - party_gstin = the GSTIN that appears alongside or is directly associated with party_name's company name in the document. buyer_gstin = the GSTIN that appears alongside or is directly associated with 'L S TECHNOLOGIES' / 'LS TECHNOLOGIES' in the document. Simple test: look at each GSTIN on the page, identify the company name next to it, then assign: if the adjacent company name is L S Technologies → buyer_gstin; if it is party_name → party_gstin. party_gstin must NEVER belong to L S Technologies.
+// - doc_type — decide by these decisive structural tells, in priority order:
+//   1. If the document title contains "Purchase Order" or "P.O." AND there is NO invoice number / NO IRN / NO Ack No., it is purchase_order. A PO is an order being placed, not a demand for payment; it often has per-line delivery dates. This holds even if it has GST, HSN, and tax breakdowns.
+//   2. If it has an IRN or Ack No. (e-invoice), or is titled "Tax Invoice" / "GST Invoice" with an Invoice No., it is purchase_invoice (for goods) — UNLESS it is dominated by freight/logistics charges.
+//   3. A freight/logistics bill with MAWB / airport / flight / CFS / agency charges = freight_invoice.
+//   4. A customs bill of entry = bill_of_entry. A bank account statement = bank_statement.
+// - Numbers plain (no commas/symbols). Some docs use IGST only, others CGST+SGST. net_amount is the final payable total after tax and round-off.
+// - purchase_order: delivery_date = the EARLIEST delivery date across all line items in YYYY-MM-DD format. Each line item must also carry its own delivery_date field (YYYY-MM-DD).
+// - purchase_order: invoice_no = the PO Number as labeled on the document ('P.O. No.', 'PO No.', 'P.O. Number', etc.).
+// - bank_statement: account_no = the account number. statement_from / statement_to = period start/end (YYYY-MM-DD). opening_balance / closing_balance from the summary section (negative for overdraft/debit balance as shown). total_debit = total withdrawals, total_credit = total deposits. invoice_date = statement download/generation date. Each transaction → line_item with date (YYYY-MM-DD), description (transaction remarks), amount (positive=credit, negative=debit). 
+// Cap at 50 line items. Each description must be a single clean line — collapse any embedded newlines or line breaks into a single space. CRITICAL for signs: use the running balance column between consecutive rows to determine direction — if the balance decreases (becomes more negative), the transaction is a DEBIT (negative amount); if the balance increases (becomes less negative/more positive), it is a CREDIT (positive amount). Never guess sign from description keywords. Three exceptions that override the balance rule: (1) 'Int.Coll' = interest charged by the bank on the account = DEBIT = negative. (2) Any NEFT/RTGS/IMPS/INF transfer where 'LS TECHNOLOGIES' or 'L S TECHNOLOGIES' appears as the beneficiary/recipient in the description = money arriving INTO this account = CREDIT = positive. (3) opening_balance must be read from the 'Opening Bal' line in the Page Total or statement summary section at the end (NOT the balance shown after the first transaction row) — preserve its negative sign if the account is overdrawn.`;
+
+// ── Shared JSON schema block (identical across every doc type) ──
+const SCHEMA_BLOCK = `Return ONLY raw JSON (no markdown, no prose). Use null for any field not present:
 {
   "doc_type": "freight_invoice | purchase_invoice | bill_of_entry | purchase_order | bank_statement | unknown",
   "invoice_no": string|null, "invoice_date": string|null,
@@ -69,23 +104,82 @@ Extract fields and return ONLY raw JSON (no markdown, no prose). Use null for an
   "opening_balance": number|null, "closing_balance": number|null,
   "total_debit": number|null, "total_credit": number|null,
   "line_items": [{ "description": string, "hsn": string|null, "qty": number|null, "uom": string|null, "rate": number|null, "amount": number|null, "date": string|null, "delivery_date": string|null }]
-}
+}`;
+
+// ── Shared party identity rule (LS Technologies is always the buyer) ──
+const PARTY_RULE = `party_name is ALWAYS the OTHER company — the issuer/counterparty — NEVER "L S Technologies" / "LS Technologies" (our client, the BUYER on every document regardless of how prominently its name appears). Identify the issuer by the LETTERHEAD/logo at the top, the "For, <COMPANY>" signature block, and the issuer's own GSTIN — NOT by the "M/S." or "Bill To" addressee (that is the buyer, LS Technologies).
+party_gstin = the GSTIN beside party_name's company name. buyer_gstin = the GSTIN beside 'L S TECHNOLOGIES'. Test: for each GSTIN, read the company name next to it; if that name is LS Technologies → buyer_gstin, else → party_gstin. party_gstin must NEVER belong to LS Technologies.`;
+
+const NUM_RULE = `Numbers plain (no commas/symbols). Dates YYYY-MM-DD. Some docs use IGST only, others CGST+SGST. net_amount is the final payable total after tax and round-off.`;
+
+// ── Focused per-type prompts. hint_doc_type selects one; no hint → UNIVERSAL ──
+const PROMPTS = {
+  purchase_invoice: `You are a precise data extraction system for Indian GST purchase invoices (goods).
+${SCHEMA_BLOCK}
 Rules:
-- party_name is ALWAYS the OTHER company — the issuer/counterparty — NEVER "L S Technologies" / "LS Technologies" (that entity is our client and is the BUYER on every document, regardless of how prominently its name appears).
-- Identify the issuer by the LETTERHEAD/logo at the top, the "For, <COMPANY>" signature block, and the issuer's own GSTIN — NOT by the "M/S." or "Bill To" addressee, which is the buyer (L S Technologies).
-- A document addressed "M/S. L S TECHNOLOGIES" is addressed TO our client; the party_name is whoever ISSUED it (e.g. the company in the letterhead).
-- For invoices/bills: party_name is the supplier issuing it. For a purchase_order: party_name is the company in the LETTERHEAD who issued this PO (they are the buyer placing the order with LS Technologies as their vendor).
-- party_gstin = the GSTIN that appears alongside or is directly associated with party_name's company name in the document. buyer_gstin = the GSTIN that appears alongside or is directly associated with 'L S TECHNOLOGIES' / 'LS TECHNOLOGIES' in the document. Simple test: look at each GSTIN on the page, identify the company name next to it, then assign: if the adjacent company name is L S Technologies → buyer_gstin; if it is party_name → party_gstin. party_gstin must NEVER belong to L S Technologies.
+- doc_type is "purchase_invoice".
+- ${PARTY_RULE}
+- This is a Tax Invoice / GST Invoice / e-invoice for goods (it has an Invoice No., often an IRN or Ack No.). party_name is the supplier issuing it.
+- Each goods line → line_item with description, hsn, qty, uom, rate, amount.
+- ${NUM_RULE}`,
+
+  freight_invoice: `You are a precise data extraction system for Indian freight / logistics invoices.
+${SCHEMA_BLOCK}
+Rules:
+- doc_type is "freight_invoice".
+- ${PARTY_RULE}
+- This is a freight/logistics bill — expect MAWB, flight no., airport codes, CFS / agency / handling charges. Capture mawb_no, flight_no, origin_airport, dest_airport, commodity, gross_weight where present.
+- Each charge line → line_item with its description and amount (these map to expense ledgers downstream).
+- ${NUM_RULE}`,
+
+  bill_of_entry: `You are a precise data extraction system for Indian customs Bills of Entry.
+${SCHEMA_BLOCK}
+Rules:
+- doc_type is "bill_of_entry".
+- ${PARTY_RULE}
+- This is a customs bill of entry for an import. Capture mawb_no, flight_no, origin_airport, dest_airport, commodity where present.
+- Each charge line (basic customs duty / BCD, IGST on import, freight, insurance) → line_item with a clear description and amount so it routes to the right import ledger.
+- ${NUM_RULE}`,
+
+  purchase_order: `You are a precise data extraction system for Indian Purchase Orders.
+${SCHEMA_BLOCK}
+Rules:
+- doc_type is "purchase_order".
+- party_name is the company in the LETTERHEAD who issued this PO (the buyer placing the order with LS Technologies as their vendor). Do not worry about GSTIN assignment — POs never generate accounting vouchers; leave party_gstin/buyer_gstin as found.
+- invoice_no = the PO Number as labeled ('P.O. No.', 'PO No.', 'P.O. Number', etc.).
+- delivery_date = the EARLIEST delivery date across all line items (YYYY-MM-DD). Each line item must also carry its own delivery_date (YYYY-MM-DD).
+- Each ordered item → line_item with description, hsn, qty, uom, rate, amount, delivery_date.
+- ${NUM_RULE}`,
+
+  bank_statement: `You are a precise data extraction system for Indian bank statements.
+${SCHEMA_BLOCK}
+Rules:
+- doc_type is "bank_statement".
+- account_no = the account number. statement_from / statement_to = period start/end (YYYY-MM-DD). invoice_date = statement download/generation date.
+- opening_balance / closing_balance from the summary section. total_debit = total withdrawals, total_credit = total deposits.
+- Each transaction → line_item with date, description (transaction remarks), amount. Cap at 50 line items. Each description must be a single clean line — collapse embedded newlines into a single space.
+- CRITICAL for signs: use the running balance column between consecutive rows — if the balance decreases the transaction is a DEBIT (negative amount); if it increases it is a CREDIT (positive amount). Never guess sign from description keywords. Three overrides: (1) 'Int.Coll' = interest charged by the bank = DEBIT = negative. (2) Any NEFT/RTGS/IMPS/INF transfer where 'LS TECHNOLOGIES' / 'L S TECHNOLOGIES' is the beneficiary = money IN = CREDIT = positive. (3) opening_balance must be read from the 'Opening Bal' line in the Page Total / summary at the end (NOT the balance after the first row) — preserve its negative sign if overdrawn.
+- ${NUM_RULE}`,
+};
+
+// Universal fallback — used only when no hint_doc_type is supplied (e.g. legacy callers).
+const EXTRACTION_PROMPT = `You are a precise data extraction system for Indian GST documents.
+${SCHEMA_BLOCK}
+Rules:
+- ${PARTY_RULE}
 - doc_type — decide by these decisive structural tells, in priority order:
-  1. If the document title contains "Purchase Order" or "P.O." AND there is NO invoice number / NO IRN / NO Ack No., it is purchase_order. A PO is an order being placed, not a demand for payment; it often has per-line delivery dates. This holds even if it has GST, HSN, and tax breakdowns.
-  2. If it has an IRN or Ack No. (e-invoice), or is titled "Tax Invoice" / "GST Invoice" with an Invoice No., it is purchase_invoice (for goods) — UNLESS it is dominated by freight/logistics charges.
-  3. A freight/logistics bill with MAWB / airport / flight / CFS / agency charges = freight_invoice.
-  4. A customs bill of entry = bill_of_entry. A bank account statement = bank_statement.
-- Numbers plain (no commas/symbols). Some docs use IGST only, others CGST+SGST. net_amount is the final payable total after tax and round-off.
-- purchase_order: delivery_date = the EARLIEST delivery date across all line items in YYYY-MM-DD format. Each line item must also carry its own delivery_date field (YYYY-MM-DD).
-- purchase_order: invoice_no = the PO Number as labeled on the document ('P.O. No.', 'PO No.', 'P.O. Number', etc.).
-- bank_statement: account_no = the account number. statement_from / statement_to = period start/end (YYYY-MM-DD). opening_balance / closing_balance from the summary section (negative for overdraft/debit balance as shown). total_debit = total withdrawals, total_credit = total deposits. invoice_date = statement download/generation date. Each transaction → line_item with date (YYYY-MM-DD), description (transaction remarks), amount (positive=credit, negative=debit). 
-Cap at 50 line items. Each description must be a single clean line — collapse any embedded newlines or line breaks into a single space. CRITICAL for signs: use the running balance column between consecutive rows to determine direction — if the balance decreases (becomes more negative), the transaction is a DEBIT (negative amount); if the balance increases (becomes less negative/more positive), it is a CREDIT (positive amount). Never guess sign from description keywords. Three exceptions that override the balance rule: (1) 'Int.Coll' = interest charged by the bank on the account = DEBIT = negative. (2) Any NEFT/RTGS/IMPS/INF transfer where 'LS TECHNOLOGIES' or 'L S TECHNOLOGIES' appears as the beneficiary/recipient in the description = money arriving INTO this account = CREDIT = positive. (3) opening_balance must be read from the 'Opening Bal' line in the Page Total or statement summary section at the end (NOT the balance shown after the first transaction row) — preserve its negative sign if the account is overdrawn.`;
+  1. Title contains "Purchase Order" or "P.O." AND there is NO invoice number / NO IRN / NO Ack No. → purchase_order (an order being placed, not a demand for payment; often has per-line delivery dates; holds even with GST/HSN/tax).
+  2. Has an IRN or Ack No. (e-invoice), or titled "Tax Invoice" / "GST Invoice" with an Invoice No. → purchase_invoice (goods) — UNLESS dominated by freight/logistics charges.
+  3. Freight/logistics bill with MAWB / airport / flight / CFS / agency charges → freight_invoice.
+  4. Customs bill of entry → bill_of_entry. Bank account statement → bank_statement.
+- purchase_order: delivery_date = EARLIEST line-item delivery date (YYYY-MM-DD); each line item carries its own delivery_date; invoice_no = the PO Number.
+- bank_statement: account_no, statement_from/to (YYYY-MM-DD), opening_balance/closing_balance from summary (negative if overdrawn), total_debit = withdrawals, total_credit = deposits, invoice_date = download date. Each transaction → line_item with date, description, amount (positive=credit, negative=debit). Cap 50, single-line descriptions. Sign from running balance, not keywords; overrides: Int.Coll = debit; NEFT/RTGS/IMPS to LS Technologies = credit; opening_balance from the 'Opening Bal' summary line.
+- ${NUM_RULE}`;
+
+// Resolve a prompt from an optional hint, falling back to the universal prompt.
+function promptFor(hint) {
+  return (hint && PROMPTS[hint]) ? PROMPTS[hint] : EXTRACTION_PROMPT;
+}
 
 
 async function callOpenRouter(body) {
@@ -101,7 +195,8 @@ async function callOpenRouter(body) {
   const data = await r.json();
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
   let raw = (data.choices?.[0]?.message?.content || '').trim();
-  if (raw.startsWith('```')) raw = raw.replace(/```json|```/g, '').trim();
+  const fence = '`'.repeat(3);
+  if (raw.startsWith(fence)) raw = raw.split(fence).join('').replace(/^json/i, '').trim();
   try {
     return JSON.parse(raw);
   } catch (e) {
@@ -145,33 +240,56 @@ function classifyExtractError(msg) {
   return 'Extraction error';
 }
 
-async function parseInvoice(buffer) {
+async function parseInvoice(buffer, hint) {
   const b64 = buffer.toString('base64');
   const parsed = await callOpenRouter({
     model: process.env.EXTRACTION_MODEL || 'google/gemini-2.5-flash',
     temperature: 0,
     messages: [{ role: 'user', content: [
-      { type: 'text', text: EXTRACTION_PROMPT },
+      { type: 'text', text: promptFor(hint) },
       { type: 'file', file: { filename: 'doc.pdf', file_data: `data:application/pdf;base64,${b64}` } }
     ]}],
     max_tokens: 8192,
     plugins: [{ id: 'file-parser', pdf: { engine: 'pdf-text' } }],
   });
-  return normalizeExtraction(parsed);
+  return normalizeExtraction(parsed, hint);
 }
 
-async function runExtraction(invoiceId, buffer) {
+async function runExtraction(invoiceId, buffer, hint) {
   try {
     let inv;
     try {
-      inv = await parseInvoice(buffer);
+      inv = await parseInvoice(buffer, hint);
     } catch (e1) {
       if (/json|unexpected token/i.test(e1.message)) {
         console.warn('Extraction parse failed for', invoiceId, '— retrying once');
-        inv = await parseInvoice(buffer);
+        inv = await parseInvoice(buffer, hint);
       } else {
         throw e1;
       }
+    }
+
+    // Purchase orders live in their own table with their own lifecycle —
+    // they never become Tally vouchers. Route the extracted PO into
+    // crm_purchase_orders (fuzzy-matching lines to the items master) and
+    // remove the placeholder crm_invoices row + its reading task.
+    if ((hint === 'purchase_order' || inv.doc_type === 'purchase_order')) {
+      const placeholder = await queryOne('SELECT uploaded_by, task_id FROM crm_invoices WHERE id=?', [invoiceId]);
+      try {
+        const po = await createPOFromExtraction(inv, placeholder?.uploaded_by || 'system');
+        if (placeholder?.task_id) {
+          await execute("UPDATE crm_tasks SET status='done', completed_at=?, title=? WHERE id=?",
+            [nowIST(), `PO ${po.po_number} imported — review`, placeholder.task_id]);
+        }
+        await execute('DELETE FROM crm_invoices WHERE id=?', [invoiceId]);
+      } catch (poErr) {
+        console.error('PO import failed for', invoiceId, poErr.message);
+        await execute(
+          `UPDATE crm_invoices SET status='extract_failed', extract_error=? WHERE id=?`,
+          ['PO import failed: ' + classifyExtractError(poErr.message), invoiceId]
+        );
+      }
+      return;
     }
     const xml = buildTallyXML(inv);
     await execute(
@@ -199,19 +317,6 @@ async function runExtraction(invoiceId, buffer) {
     );
     const t = `Approve invoice${inv.invoice_no ? ' ' + inv.invoice_no : ''} — Rs.${inv.net_amount || '?'}`;
     await execute('UPDATE crm_tasks SET title=? WHERE invoice_id=?', [t, invoiceId]);
-    if (inv.doc_type === 'purchase_order' && inv.delivery_date) {
-      const uploader = await queryOne('SELECT uploaded_by FROM crm_invoices WHERE id=?', [invoiceId]);
-      await execute(
-        `INSERT INTO crm_tasks (title, due_date, status, assigned_to, created_by, created_at, invoice_id)
-         VALUES (?, ?, 'open', ?, 'system', ?, ?)`,
-        [
-          `Delivery due: ${inv.invoice_no || 'PO'} — ${inv.party_name || 'supplier'}`,
-          inv.delivery_date,
-          uploader?.uploaded_by || 'system',
-          nowIST(), invoiceId,
-        ]
-      );
-    }
   } catch (err) {
     console.error('Background extraction failed for', invoiceId, err.message);
     await execute(
@@ -517,13 +622,16 @@ function buildTallyXML(inv) {
   }
 }
 
+const VALID_HINTS = ['purchase_invoice', 'freight_invoice', 'bill_of_entry', 'purchase_order', 'bank_statement'];
+
 router.post('/upload', upload.single('pdf'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No PDF uploaded' });
+  const hint = VALID_HINTS.includes(req.body.hint_doc_type) ? req.body.hint_doc_type : null;
   try {
     const result = await execute(
-      `INSERT INTO crm_invoices (uploaded_by, original_filename, status, line_items, tally_xml)
-       VALUES (?, ?, 'reading', '[]', '')`,
-      [req.user.username, req.file.originalname]
+      `INSERT INTO crm_invoices (uploaded_by, original_filename, doc_type, status, line_items, tally_xml)
+       VALUES (?, ?, ?, 'reading', '[]', '')`,
+      [req.user.username, req.file.originalname, hint || null]
     );
     const invoiceId = Number(result.lastId);
     const taskResult = await execute(
@@ -535,7 +643,7 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
     await execute('UPDATE crm_invoices SET task_id = ? WHERE id = ?',
       [Number(taskResult.lastId), invoiceId]);
     res.json({ success: true, invoiceId, status: 'reading' });
-    runExtraction(invoiceId, req.file.buffer);
+    runExtraction(invoiceId, req.file.buffer, hint);
   } catch (err) {
     console.error('Invoice upload error:', err);
     res.status(500).json({ error: 'Upload failed: ' + err.message });

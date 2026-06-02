@@ -7,6 +7,153 @@
   <title>Docs | LS CRM</title>
   <link rel="stylesheet" href="/public/css/style.css">
   <style>
+    /* ===== Search bar ===== */
+    .search-wrap {
+      position: relative; flex: 1; min-width: 160px; max-width: 380px;
+    }
+    .search-ico {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      pointer-events: none; color: var(--text-muted);
+      display: flex; align-items: center;
+      transition: color 0.2s, filter 0.2s;
+    }
+    .search-wrap:hover .search-ico,
+    .search-wrap:focus-within .search-ico {
+      color: var(--primary);
+      filter: drop-shadow(0 0 5px var(--primary));
+    }
+    .search-input {
+      width: 100%; box-sizing: border-box; font-family: var(--font); font-size: 13px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); padding: 8px 10px 8px 34px; transition: border-color 0.15s;
+    }
+    .search-input:focus { outline: none; border-color: var(--primary); }
+    .search-input::placeholder { color: var(--text-muted); }
+
+    /* ===== Filter toggle button ===== */
+    .filter-toggle {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-muted); font-family: var(--font); font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.4px; padding: 8px 12px;
+      cursor: pointer; flex-shrink: 0;
+      display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s;
+    }
+    .filter-toggle:hover { border-color: var(--primary); color: var(--primary); }
+    .filter-toggle.has-filters {
+      border-color: var(--primary); color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 8%, var(--bg));
+    }
+    .filter-badge {
+      background: var(--primary); color: #fff; font-size: 9px; font-weight: 800;
+      min-width: 16px; height: 16px; border-radius: 8px; padding: 0 3px;
+      display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+    }
+
+    /* ===== Pills row ===== */
+    .docs-pills-row {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;
+    }
+    .docs-pills-row .doc-filters { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+
+    /* ===== Collapsible filter panel ===== */
+    .filter-panel {
+      max-height: 0; overflow: hidden; opacity: 0; margin-bottom: 0;
+      transition: max-height 0.28s ease, opacity 0.2s, margin 0.2s;
+    }
+    .filter-panel.open { max-height: 420px; opacity: 1; margin-bottom: 16px; }
+    .filter-panel-inner {
+      display: grid; grid-template-columns: 1.5fr 1fr 1fr auto;
+      gap: 16px 16px; align-items: end;
+      padding: 18px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border); border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .fp-field { display: flex; flex-direction: column; gap: 6px; }
+    .fp-field label {
+      font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--text-muted);
+    }
+    .fp-field select, .fp-field input[type="date"] {
+      font-family: var(--font); font-size: 12.5px; font-weight: 500;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); padding: 9px 12px;
+      transition: border-color 0.15s, box-shadow 0.15s; cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+    }
+    .fp-field select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center;
+      padding-right: 32px;
+    }
+    .fp-field select:hover, .fp-field input[type="date"]:hover { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); }
+    .fp-field select:focus, .fp-field input[type="date"]:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent);
+    }
+    .fp-row2 {
+      grid-column: 1/-1; display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
+      padding-top: 14px; border-top: 1px solid var(--border); margin-top: 2px;
+    }
+    .fp-row2 .doc-filters { margin-bottom: 0; flex: 1; }
+    .fp-archived { flex-shrink: 0; }
+    .fp-archived {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 600; color: var(--text-muted);
+      cursor: pointer; user-select: none;
+    }
+    .fp-archived:hover { color: var(--text); }
+    .fp-clear {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text-muted); font-family: var(--font); font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.4px; padding: 9px 16px;
+      cursor: pointer; white-space: nowrap; transition: all 0.15s; align-self: end;
+    }
+    .fp-clear:hover { border-color: var(--danger); color: var(--danger); background: color-mix(in srgb, var(--danger) 6%, var(--bg)); }
+
+    @media (max-width: 768px) {
+      .docs-toolbar { gap: 8px; flex-wrap: wrap; }
+      .docs-toolbar > .btn { width: 100%; order: 1; }
+      .search-wrap { order: 2; max-width: 100%; flex: 1; }
+      .filter-toggle { order: 3; }
+      .docs-pills-row { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; scrollbar-width: none; }
+      .docs-pills-row::-webkit-scrollbar { display: none; }
+      .docs-pills-row .doc-filters { flex-wrap: nowrap; }
+      .docs-pills-row .doc-filter { flex-shrink: 0; }
+      .filter-panel-inner { grid-template-columns: 1fr 1fr; }
+      .fp-clear { grid-column: 1/-1; }
+    }
+    /* ===== Trash button ===== */
+    .trash-btn {
+      background: none; border: none; padding: 4px; cursor: pointer;
+      color: var(--danger); border-radius: var(--radius);
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: filter 0.2s, transform 0.2s;
+    }
+    .trash-btn:hover {
+      filter: drop-shadow(0 0 5px var(--danger)) drop-shadow(0 0 10px var(--danger));
+      transform: scale(1.15);
+    }
+
+    /* ===== Custom checkbox ===== */
+    .bulk-cb {
+      appearance: none; -webkit-appearance: none;
+      width: 16px; height: 16px; flex-shrink: 0;
+      border: 1.5px solid var(--border); border-radius: 4px;
+      background: var(--bg); cursor: pointer; position: relative;
+      transition: all 0.15s; vertical-align: middle;
+    }
+    .bulk-cb:hover { border-color: var(--primary); }
+    .bulk-cb:checked {
+      background: var(--primary); border-color: var(--primary);
+    }
+    .bulk-cb:checked::after {
+      content: ''; position: absolute;
+      left: 4px; top: 1px; width: 5px; height: 9px;
+      border: 2px solid #fff; border-top: none; border-left: none;
+      transform: rotate(45deg);
+    }
     .dropzone {
       border: 2px dashed var(--border); border-radius: var(--radius);
       padding: 48px 24px; text-align: center; cursor: pointer;
@@ -25,6 +172,22 @@
       text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 14px; cursor: pointer; transition: all 0.15s;
     }
     .doc-filter.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .docs-toolbar {
+      display: flex; align-items: center; gap: 12px;
+      flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .dt-left { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .docs-toolbar .search-wrap { margin: 0 auto; }
+    .docs-toolbar .filter-toggle { margin-left: auto; }
+
+    .select-all-btn {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-muted); font-family: var(--font); font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.4px; padding: 8px 14px;
+      cursor: pointer; flex-shrink: 0; transition: all 0.15s;
+      display: inline-flex; align-items: center;
+    }
+    .select-all-btn:hover { border-color: var(--primary); color: var(--primary); }
 
     .doc-type-tag {
       font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
@@ -130,6 +293,88 @@
     .po-existing-item .code { font-size: 11px; font-weight: 700; }
     .po-existing-item .desc { font-size: 11px; color: var(--text-muted); }
 
+    /* ===== Add-document overlay (type picker) ===== */
+    .add-overlay {
+      position: fixed; inset: 0; z-index: 920; background: rgba(0,0,0,0.45);
+      display: none; align-items: flex-start; justify-content: center;
+      opacity: 0; transition: opacity 0.18s; overflow-y: auto; padding: 8vh 16px 24px;
+    }
+    .add-overlay.open { display: flex; opacity: 1; }
+    .add-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      width: 560px; max-width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      transform: translateY(12px); transition: transform 0.18s; overflow: hidden;
+    }
+    .add-overlay.open .add-card { transform: translateY(0); }
+    .add-head { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .add-head .ah-title { font-size: 14px; font-weight: 700; }
+    .add-head .ah-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .add-body { padding: 18px; }
+
+    .type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .type-btn {
+      display: flex; align-items: center; gap: 12px; text-align: left;
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 14px; cursor: pointer; transition: all 0.15s; font-family: var(--font); color: var(--text);
+    }
+    .type-btn:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 6%, var(--bg)); }
+    .type-btn.sel { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--bg)); }
+    .type-btn .ti-ico {
+      width: 40px; height: 40px; flex-shrink: 0; border-radius: var(--radius);
+      background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+      display: flex; align-items: center; justify-content: center;
+    }
+    .type-btn .ti-ico svg { width: 20px; height: 20px; stroke: var(--primary); fill: none; stroke-width: 1.6; }
+    .type-btn .tb-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .type-btn .tb-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
+    .type-btn .tb-sub { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; line-height: 1.3; }
+
+    .add-actions { margin-top: 4px; }
+    .add-back {
+      background: none; border: none; color: var(--text-muted); font-family: var(--font);
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+      cursor: pointer; padding: 0; margin-bottom: 14px; display: inline-flex; align-items: center; gap: 5px;
+    }
+    .add-back:hover { color: var(--text); }
+    .add-chosen { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .add-chosen .ti-ico { width: 44px; height: 44px; flex-shrink: 0; border-radius: var(--radius); background: color-mix(in srgb, var(--primary) 12%, var(--surface)); display: flex; align-items: center; justify-content: center; }
+    .add-chosen .ti-ico svg { width: 22px; height: 22px; stroke: var(--primary); fill: none; stroke-width: 1.6; }
+    .add-chosen .ac-name { font-size: 15px; font-weight: 700; }
+    .add-chosen .ac-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    .freight-toggle {
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px; margin-bottom: 16px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+    }
+    .freight-toggle label { font-size: 12px; font-weight: 600; color: var(--text); cursor: pointer; flex: 1; }
+    .freight-toggle .ft-hint { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+    .switch { position: relative; width: 38px; height: 22px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch .track { position: absolute; inset: 0; background: var(--border); border-radius: 22px; transition: background 0.15s; cursor: pointer; }
+    .switch .track::before { content: ''; position: absolute; height: 16px; width: 16px; left: 3px; top: 3px; background: var(--surface); border-radius: 50%; transition: transform 0.15s; }
+    .switch input:checked + .track { background: var(--primary); }
+    .switch input:checked + .track::before { transform: translateX(16px); }
+
+    .action-row { display: flex; flex-direction: column; gap: 10px; }
+    .action-btn {
+      display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 14px; cursor: pointer; transition: all 0.15s; font-family: var(--font); color: var(--text);
+    }
+    .action-btn:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 6%, var(--bg)); }
+    .action-btn .ab-ico { width: 32px; height: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .action-btn .ab-ico svg { width: 19px; height: 19px; stroke: var(--text-muted); fill: none; stroke-width: 1.6; }
+    .action-btn:hover .ab-ico svg { stroke: var(--primary); }
+    .action-btn .ab-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .action-btn .ab-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
+    .action-btn .ab-sub { font-size: 10px; color: var(--text-muted); line-height: 1.3; }
+
+    @media (max-width: 600px) {
+      .add-overlay { padding: 0; align-items: stretch; }
+      .add-card { width: 100%; max-width: 100%; border-radius: 0; min-height: 100vh; }
+      .type-grid { grid-template-columns: 1fr; }
+    }
+
     /* ===== Processing overlay (async extraction) ===== */
     .proc-overlay {
       position: fixed; inset: 0; z-index: 950; background: color-mix(in srgb, var(--bg) 82%, transparent);
@@ -157,6 +402,31 @@
       text-transform: uppercase; letter-spacing: 0.4px; padding: 9px 16px; cursor: pointer; transition: all 0.15s;
     }
     .proc-dismiss:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* ===== Mobile ===== */
+    @media (max-width: 768px) {
+      /* Toolbar: Add button full-width on top, pills scroll horizontally below */
+      .docs-toolbar { gap: 10px; }
+      .docs-toolbar > .btn { width: 100%; order: -1; }
+      .docs-toolbar .doc-filters {
+        margin-left: 0; width: 100%; flex-wrap: nowrap; overflow-x: auto;
+        -webkit-overflow-scrolling: touch; padding-bottom: 2px;
+        scrollbar-width: none;
+      }
+      .docs-toolbar .doc-filters::-webkit-scrollbar { display: none; }
+      .docs-toolbar .doc-filter { flex-shrink: 0; }
+
+      /* Table scrolls horizontally inside its card instead of overflowing */
+      #docsTable-container .table-wrap {
+        overflow-x: auto; -webkit-overflow-scrolling: touch;
+        border: 1px solid var(--border); border-radius: var(--radius);
+      }
+      #docsTable-container table { min-width: 640px; }
+
+      /* Review panel + add card already go full-width via their own rules */
+      .rv-foot { flex-wrap: wrap; }
+      .rv-foot button { flex: 1 1 auto; }
+    }
   </style>
 </head>
 <body>
@@ -199,81 +469,95 @@
   <div class="container">
     <div class="page-header">
       <h1>Docs</h1>
-      <p>Drop any document — invoice, freight, bill of entry, bank statement — it gets read and queued for approval</p>
-    </div>
-
-    <div class="docs-tabs">
-      <button class="docs-tab active" data-tab="documents" onclick="setTab('documents')">Documents</button>
-      <button class="docs-tab" data-tab="po" onclick="setTab('po')">Purchase Orders</button>
-    </div>
-
-    <div class="tab-pane active" id="pane-documents">
-    <div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);">Add manually:</span>
-      <button class="rv-add-btn" onclick="openManual('purchase_invoice')">Invoice</button>
-      <button class="rv-add-btn" onclick="openManual('freight_invoice')">Freight Invoice</button>
-      <button class="rv-add-btn" onclick="openManual('bill_of_entry')">Bill of Entry</button>
-      <button class="rv-add-btn" onclick="openManual('bank_statement')">Bank Statement</button>
+      <p>Add a document and we read it, then queue it for your review before anything reaches Tally</p>
     </div>
 
     <div class="card">
-      <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
-        </svg>
-        <div class="dz-title" id="dzTitle">Drop a PDF here, or click to browse</div>
-        <div class="dz-sub">The document is read automatically &middot; review &amp; approve before it reaches Tally</div>
-        <input type="file" id="fileInput" accept="application/pdf" style="display:none" onchange="handleFiles(this.files)">
+      <div class="docs-toolbar">
+        <div class="dt-left">
+          <button class="btn btn-primary btn-sm" onclick="openAdd()">+ Add</button>
+          <button class="select-all-btn" id="selectAllBtn" onclick="bulkSelectAll()" style="display:none;">Select all</button>
+        </div>
+        <div class="search-wrap">
+          <span class="search-ico">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
+            </svg>
+          </span>
+          <input class="search-input" id="searchInput" placeholder="Search invoice no, party…" oninput="onSearch(this.value)">
+        </div>
+        <button class="filter-toggle" id="filterToggle" onclick="toggleFilterPanel()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"/>
+          </svg>
+          Filters
+        </button>
       </div>
-    </div>
-
-    <div class="card">
-      <div class="doc-filters" id="docFilters">
-        <button class="doc-filter active" data-status="all" onclick="setFilter('all')">All</button>
-        <button class="doc-filter" data-status="pending" onclick="setFilter('pending')">Pending</button>
-        <button class="doc-filter" data-status="approved" onclick="setFilter('approved')">Approved</button>
-        <button class="doc-filter" data-status="pushed" onclick="setFilter('pushed')">Pushed</button>
-        <button class="doc-filter" data-status="rejected" onclick="setFilter('rejected')">Rejected</button>
-        <button class="doc-filter" data-status="deleted" onclick="setFilter('deleted')">Deleted</button>
-        <button class="doc-filter" style="margin-left:auto;" onclick="bulkSelectAll()">☑ Select page</button>
+      <div class="filter-panel" id="filterPanel">
+        <div class="filter-panel-inner">
+          <div class="fp-field">
+            <label>Doc Type</label>
+            <select id="fpDocType" onchange="onFilterChange()">
+              <option value="">All types</option>
+              <option value="purchase_invoice">Purchase Invoice</option>
+              <option value="freight_invoice">Freight Invoice</option>
+              <option value="bill_of_entry">Bill of Entry</option>
+              <option value="bank_statement">Bank Statement</option>
+              <option value="purchase_order">Purchase Order</option>
+            </select>
+          </div>
+          <div class="fp-field">
+            <label>Added from</label>
+            <input type="date" id="fpDateFrom" onchange="onFilterChange()">
+          </div>
+          <div class="fp-field">
+            <label>Added to</label>
+            <input type="date" id="fpDateTo" onchange="onFilterChange()">
+          </div>
+          <button class="fp-clear" onclick="clearFilters()">Clear</button>
+          <div class="fp-row2">
+            <div class="doc-filters" id="docFilters">
+              <button class="doc-filter active" data-status="all" onclick="setFilter('all')">All</button>
+              <button class="doc-filter" data-status="pending" onclick="setFilter('pending')">Pending</button>
+              <button class="doc-filter" data-status="approved" onclick="setFilter('approved')">Approved</button>
+              <button class="doc-filter" data-status="pushed" onclick="setFilter('pushed')">Pushed</button>
+              <button class="doc-filter" data-status="po" onclick="setFilter('po')">Purchase orders</button>
+              <button class="doc-filter" data-status="rejected" onclick="setFilter('rejected')">Rejected</button>
+            </div>
+            <label class="fp-archived">
+              <input type="checkbox" class="bulk-cb" id="fpDeleted" onchange="onFilterChange()">
+              Show deleted records
+            </label>
+          </div>
+        </div>
       </div>
       <div id="bulkBar" style="display:none;align-items:center;gap:12px;margin-bottom:12px;padding:8px 12px;background:color-mix(in srgb, var(--primary) 8%, var(--bg));border:1px solid var(--primary);border-radius:var(--radius);">
         <span id="bulkCount" style="font-size:12px;font-weight:700;color:var(--text);"></span>
-        <button class="rv-add-btn" style="border-style:solid;border-color:var(--danger);color:var(--danger);" onclick="bulkDelete()">Delete selected</button>
-        <button class="rv-add-btn" onclick="bulkClear()">Clear</button>
+        <button class="rv-add-btn" style="border-style:solid;border-color:var(--danger);color:var(--danger);" onclick="bulkDelete()">Delete</button> 
       </div>
       <div id="docsTable-container"></div>
     </div>
-    </div><!-- /pane-documents -->
 
-    <div class="tab-pane" id="pane-po">
-      <div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);">Create:</span>
-        <button class="rv-add-btn" onclick="openPONew()">+ New Purchase Order</button>
-      </div>
-
-      <div class="card">
-        <div class="doc-filters">
-          <select id="poFStatus" class="doc-filter" style="text-transform:none;" onchange="loadPOs()">
-            <option value="all">All statuses</option>
-            <option value="draft">Draft</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="dispatched">Dispatched</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          <select id="poFCompany" class="doc-filter" style="text-transform:none;" onchange="loadPOs()">
-            <option value="">All companies</option>
-          </select>
+    <!-- Add-document overlay (type picker) -->
+    <input type="file" id="fileInput" accept="application/pdf" style="display:none" onchange="handleFiles(this.files)">
+    <div id="addOverlay" class="add-overlay" onclick="if(event.target===this)closeAdd()">
+      <div class="add-card">
+        <div class="add-head">
+          <div>
+            <div class="ah-title" id="addTitle">What are you adding?</div>
+            <div class="ah-sub" id="addSub">Choose a document type to begin</div>
+          </div>
+          <button class="rv-close" onclick="closeAdd()">&times;</button>
         </div>
-        <div id="poTable-container"></div>
+        <div class="add-body" id="addBody"></div>
       </div>
-    </div><!-- /pane-po -->
+    </div>
 
     <!-- Processing overlay (async extraction) -->
     <div id="procOverlay" class="proc-overlay">
       <div class="proc-card">
         <div class="proc-spin"></div>
-        <div class="proc-title">Reading your document…</div>
+        <div class="proc-title" id="procTitle">Reading your document…</div>
         <div class="proc-sub">
           <span class="proc-file" id="procFile">document.pdf</span><br>
           Extracting fields with AI. This can take up to a minute.
@@ -305,20 +589,65 @@
       purchase_order: 'Purchase Order', bill_of_entry: 'Bill of Entry', bank_statement: 'Bank Statement'
     };
     let statusFilter = 'all';
+    let searchQuery   = '';
+    let filterDocType = '';
+    let filterDateFrom = '';
+    let filterDateTo  = '';
+    let filterDeleted = false;
+
+    // PO lifecycle → friendly stage labels. "dispatched" is the terminal
+    // "In system" state; POs never go to Tally.
+    const PO_STAGE = { draft:'Draft', confirmed:'Confirmed', dispatched:'In system', cancelled:'Cancelled' };
+    const PO_STAGE_CLASS = { draft:'st-pending', confirmed:'st-pushed', dispatched:'st-approved', cancelled:'st-rejected' };
+
+    // A unified row is either a doc (from crm_invoices) or a PO (from crm_purchase_orders,
+    // tagged with _po=true by loadDocs). Routing + labels branch on that flag.
+    function rowIsPO(d) { return d._po === true; }
+    function rowTitle(d) {
+      if (rowIsPO(d)) return d.po_number || 'PO';
+      return d.invoice_no || d.original_filename || 'Untitled';
+    }
+    function rowOpen(d) { return rowIsPO(d) ? `openPO(${d.id})` : `openReview(${d.id})`; }
+    function rowTypeLabel(d) {
+      return rowIsPO(d) ? 'Purchase Order' : (DOC_TYPE_LABEL[d.doc_type] || d.doc_type || '—');
+    }
+    function rowStage(d) {
+      if (rowIsPO(d)) {
+        return `<span class="${PO_STAGE_CLASS[d.status]||'st-reading'}" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;">${esc(PO_STAGE[d.status]||d.status)}</span>`;
+      }
+      return `<span class="st-${d.status}" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;">${esc(d.status)}</span>`;
+    }
+    function rowAmount(d) {
+      if (rowIsPO(d)) return '—'; // POs carry no single net amount
+      return d.net_amount ? '₹' + Number(d.net_amount).toLocaleString('en-IN', {minimumFractionDigits:2}) : '—';
+    }
+    // POs are never bulk-deletable here (own lifecycle); checkbox only for docs.
+    function rowCheckbox(d) {
+      if (rowIsPO(d)) return '';
+      return `<input type="checkbox" class="bulk-cb" value="${d.id}" data-status="${d.status}" onclick="event.stopPropagation();onBulkToggle()" style="cursor:pointer;width:15px;height:15px;">`;
+    }
+    function rowTrash(d) {
+      if (rowIsPO(d) || d.deleted_at) return '';
+      return `<button class="trash-btn" title="Delete" onclick="event.stopPropagation();rowDelete(${d.id},'${d.status}')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
+        </svg>
+      </button>`; 
+    }
 
     const docsTable = new PaginatedTable({
       containerId: 'docsTable-container',
       pageSize: 15,
-      titleText: 'Documents',
+      titleText: '',
       columns: [
-        { label: '', render: d => `<input type="checkbox" class="bulk-cb" value="${d.id}" data-status="${d.status}" onclick="event.stopPropagation();onBulkToggle()" style="cursor:pointer;width:15px;height:15px;">` },
-        { label: 'Document', render: d => `<strong style="cursor:pointer;color:var(--primary);" onclick="openReview(${d.id})">${esc(d.invoice_no || d.original_filename || 'Untitled')}</strong>` },
-        { label: 'Type', render: d => `<span class="doc-type-tag">${esc(DOC_TYPE_LABEL[d.doc_type] || d.doc_type || '—')}</span>` },
-        { label: 'Party', render: d => esc(d.party_name) || '—' },
-        { label: 'Amount', render: d => d.net_amount ? '₹' + Number(d.net_amount).toLocaleString('en-IN', {minimumFractionDigits:2}) : '—' },
-        { label: 'Status', render: d => `<span class="st-${d.status}" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;">${esc(d.status)}</span>` },
-        { label: 'Uploaded', render: d => formatDate(d.created_at) },
-        { label: '', render: d => d.deleted_at ? '' : `<span style="cursor:pointer;color:var(--text-muted);font-size:14px;" title="Delete" onclick="event.stopPropagation();rowDelete(${d.id},'${d.status}')">🗑</span>` },
+        { label: '', render: d => rowCheckbox(d) },
+        { label: 'Document', render: d => `<strong style="cursor:pointer;color:var(--primary);" onclick="${rowOpen(d)}">${esc(rowTitle(d))}</strong>` + (rowIsPO(d) && d.po_source==='upload' ? ' <span class="po-source-tag">IMPORTED</span>' : (rowIsPO(d) && d.po_source==='system' ? ' <span class="po-source-tag">SYS</span>' : '')) },
+        { label: 'Type', render: d => `<span class="doc-type-tag">${esc(rowTypeLabel(d))}</span>` },
+        { label: 'Party', render: d => esc(rowIsPO(d) ? (d.company_name || d.party_name) : d.party_name) || '—' },
+        { label: 'Amount', render: d => rowAmount(d) },
+        { label: 'Stage', render: d => rowStage(d) },
+        { label: 'Added', render: d => formatDate(d.created_at) },
+        { label: '', render: d => rowTrash(d) },
       ]
     });
 
@@ -339,11 +668,15 @@
       const boxes = getBulkBoxes();
       const allChecked = boxes.length && boxes.every(cb => cb.checked);
       boxes.forEach(cb => { cb.checked = !allChecked; });
+      const btn = document.getElementById('selectAllBtn');
+      if (btn) btn.textContent = allChecked ? 'Select all' : 'Clear all';
       onBulkToggle();
     }
 
     function bulkClear() {
       getBulkBoxes().forEach(cb => { cb.checked = false; });
+      const btn = document.getElementById('selectAllBtn');
+      if (btn) btn.textContent = 'Select all';
       onBulkToggle();
     }
 
@@ -389,22 +722,235 @@
     function setFilter(s) {
       statusFilter = s;
       document.querySelectorAll('#docFilters .doc-filter').forEach(b => b.classList.toggle('active', b.dataset.status === s));
+      // Switching pills dismisses the "deleted" checkbox
+      const fpDel = document.getElementById('fpDeleted');
+      if (fpDel && fpDel.checked) {
+        fpDel.checked = false; filterDeleted = false;
+        document.getElementById('docFilters').style.opacity = '1';
+        document.getElementById('docFilters').style.pointerEvents = '';
+        updateFilterBadge();
+      }
       loadDocs();
     }
 
+    function onSearch(val) {
+      searchQuery = val.trim().toLowerCase();
+      loadDocs();
+    }
+
+    function toggleFilterPanel() {
+      const panel = document.getElementById('filterPanel');
+      const btn   = document.getElementById('filterToggle');
+      panel.classList.toggle('open');
+      btn.classList.toggle('has-filters', panel.classList.contains('open') || filterDocType || filterDateFrom || filterDateTo || filterDeleted);
+    }
+
+    function onFilterChange() {
+      filterDocType  = document.getElementById('fpDocType').value;
+      filterDateFrom = document.getElementById('fpDateFrom').value;
+      filterDateTo   = document.getElementById('fpDateTo').value;
+      filterDeleted  = document.getElementById('fpDeleted').checked;
+      // Dim status pills when showing deleted (they don't apply)
+      const pills = document.getElementById('docFilters');
+      pills.style.opacity       = filterDeleted ? '0.35' : '1';
+      pills.style.pointerEvents = filterDeleted ? 'none'  : '';
+      updateFilterBadge();
+      loadDocs();
+    }
+
+    function updateFilterBadge() {
+      let count = [filterDocType, filterDateFrom, filterDateTo].filter(Boolean).length;
+      if (filterDeleted) count++;
+      const btn = document.getElementById('filterToggle');
+      if (!btn) return;
+      const old = btn.querySelector('.filter-badge');
+      if (old) old.remove();
+      if (count > 0) {
+        btn.insertAdjacentHTML('beforeend', `<span class="filter-badge">${count}</span>`);
+        btn.classList.add('has-filters');
+      } else {
+        btn.classList.remove('has-filters');
+      }
+    }
+
+    function clearFilters() {
+      filterDocType = ''; filterDateFrom = ''; filterDateTo = ''; filterDeleted = false;
+      ['fpDocType','fpDateFrom','fpDateTo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      const fpDel = document.getElementById('fpDeleted');
+      if (fpDel) fpDel.checked = false;
+      const pills = document.getElementById('docFilters');
+      pills.style.opacity = '1'; pills.style.pointerEvents = '';
+      updateFilterBadge();
+      loadDocs();
+    }
+
+    function applyClientFilters(rows) {
+      return rows.filter(d => {
+        if (searchQuery) {
+          const title  = rowTitle(d).toLowerCase();
+          const party  = ((rowIsPO(d) ? (d.company_name || d.party_name) : d.party_name) || '').toLowerCase();
+          if (!title.includes(searchQuery) && !party.includes(searchQuery)) return false;
+        }
+        if (filterDocType) {
+          if (filterDocType === 'purchase_order' && !rowIsPO(d)) return false;
+          if (filterDocType !== 'purchase_order' && (rowIsPO(d) || d.doc_type !== filterDocType)) return false;
+        }
+        if (filterDateFrom && d.created_at && new Date(d.created_at) < new Date(filterDateFrom)) return false;
+        if (filterDateTo   && d.created_at && new Date(d.created_at) > new Date(filterDateTo + 'T23:59:59')) return false;
+        return true;
+      });
+    }
+
+    // The table is unified: crm_invoices rows + crm_purchase_orders rows (flagged _po).
+    // "all" shows both; "po" shows only POs; doc statuses filter invoices only;
+    // POs sort into the same list by created_at.
     async function loadDocs() {
-      const q = statusFilter === 'all' ? '' : `?status=${statusFilter}`;
-      try { docsTable.load(await api(`/api/invoices${q}`)); } catch (e) {}
+      try {
+        let rows;
+        if (filterDeleted) {
+          rows = await api('/api/invoices?status=deleted');
+        } else if (statusFilter === 'po') {
+          const pos = await api('/api/po');
+          rows = pos.map(p => ({ ...p, _po: true }));
+        } else if (statusFilter === 'all') {
+          const [docs, pos] = await Promise.all([
+            api('/api/invoices'),
+            api('/api/po').catch(() => []),
+          ]);
+          rows = [...docs, ...pos.map(p => ({ ...p, _po: true }))]
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        } else {
+          rows = await api(`/api/invoices?status=${statusFilter}`);
+        }
+        rows = applyClientFilters(rows);
+        docsTable.load(rows);
+        updateSelectAll(rows);
+      } catch (e) {}
+    }
+
+    // "Select all" only appears when there's more than 2 selectable (non-PO) rows.
+    function updateSelectAll(rows) {
+      const selectable = rows.filter(r => !r._po).length;
+      const btn = document.getElementById('selectAllBtn');
+      if (btn) btn.style.display = selectable > 2 ? 'inline-flex' : 'none';
+    }
+
+    // ===== Add-document overlay =====
+    // Four types; Invoice carries a freight toggle (flips the hint between
+    // purchase_invoice and freight_invoice); PO adds a third "Generate" action.
+    const TYPE_DEFS = [
+      { key: 'invoice', name: 'Invoice', sub: 'Purchase / freight → Tally',
+        icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>' },
+      { key: 'bill_of_entry', name: 'Bill of entry', sub: 'Customs → Tally',
+        icon: '<path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>' },
+      { key: 'bank_statement', name: 'Bank statement', sub: 'Transactions → Tally',
+        icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z"/>' },
+      { key: 'purchase_order', name: 'Purchase order', sub: 'Own lifecycle · no Tally',
+        icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z"/>' },
+    ];
+
+    const ICO = {
+      upload: '<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 7.5 12 3m0 0L7.5 7.5M12 3v13.5"/>',
+      manual: '<path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"/>',
+      generate: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>',
+      back: '<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/>',
+    };
+
+    function iconWrap(cls, path) {
+      return `<span class="${cls}"><svg viewBox="0 0 24 24" fill="none">${path}</svg></span>`;
+    }
+
+    function openAdd() {
+      document.getElementById('addOverlay').classList.add('open');
+      renderTypePicker();
+    }
+    function closeAdd() {
+      document.getElementById('addOverlay').classList.remove('open');
+    }
+
+    function renderTypePicker() {
+      document.getElementById('addTitle').textContent = 'What are you adding?';
+      document.getElementById('addSub').textContent = 'Choose a document type to begin';
+      document.getElementById('addBody').innerHTML = `
+        <div class="type-grid">
+          ${TYPE_DEFS.map(t => `
+            <button class="type-btn" onclick="chooseType('${t.key}')">
+              ${iconWrap('ti-ico', t.icon)}
+              <span class="tb-text"><span class="tb-name">${t.name}</span><span class="tb-sub">${t.sub}</span></span>
+            </button>`).join('')}
+        </div>`;
+    }
+
+    // freight toggle state lives here so both Upload and Manual read it
+    let _addFreight = false;
+
+    function chooseType(key) {
+      const def = TYPE_DEFS.find(t => t.key === key);
+      _addFreight = false;
+      document.getElementById('addTitle').textContent = def.name;
+      document.getElementById('addSub').textContent = 'How would you like to add it?';
+
+      const isInvoice = key === 'invoice';
+      const isPO = key === 'purchase_order';
+
+      const freightBlock = isInvoice ? `
+        <div class="freight-toggle">
+          <label for="ftSwitch">Freight / logistics invoice
+            <div class="ft-hint">Turn on for MAWB, airline, CFS &amp; handling bills</div>
+          </label>
+          <span class="switch"><input type="checkbox" id="ftSwitch" onchange="_addFreight=this.checked"><span class="track" onclick="document.getElementById('ftSwitch').click()"></span></span>
+        </div>` : '';
+
+      const genAction = isPO ? `
+        <button class="action-btn" onclick="addGeneratePO()">
+          ${iconWrap('ab-ico', ICO.generate)}
+          <span class="ab-text"><span class="ab-name">Generate</span><span class="ab-sub">Create a system PO (SYS-XXX) from scratch</span></span>
+        </button>` : '';
+
+      document.getElementById('addBody').innerHTML = `
+        <button class="add-back" onclick="renderTypePicker()">${iconWrap('', ICO.back).replace('class=""','style="display:inline-flex"')} Back</button>
+        ${freightBlock}
+        <div class="action-row">
+          <button class="action-btn" onclick="addUpload('${key}')">
+            ${iconWrap('ab-ico', ICO.upload)}
+            <span class="ab-text"><span class="ab-name">Upload PDF</span><span class="ab-sub">${isPO ? 'Read a PO document and import it' : 'Read it automatically with AI'}</span></span>
+          </button>
+          <button class="action-btn" onclick="addManual('${key}')">
+            ${iconWrap('ab-ico', ICO.manual)}
+            <span class="ab-text"><span class="ab-name">Enter manually</span><span class="ab-sub">Fill in the fields yourself</span></span>
+          </button>
+          ${genAction}
+        </div>`;
+    }
+
+    // Resolve the picker key + freight toggle into a concrete hint_doc_type.
+    function resolveHint(key) {
+      if (key === 'invoice') return _addFreight ? 'freight_invoice' : 'purchase_invoice';
+      return key; // bill_of_entry | bank_statement | purchase_order
+    }
+
+    let _pendingHint = null; // hint for the next file chosen via the dialog
+
+    function addUpload(key) {
+      _pendingHint = resolveHint(key);
+      closeAdd();
+      document.getElementById('fileInput').click();
+    }
+    function addManual(key) {
+      const hint = resolveHint(key);
+      closeAdd();
+      if (hint === 'purchase_order') { openPONew(); return; }
+      openManual(hint);
+    }
+    function addGeneratePO() {
+      closeAdd();
+      openPONew();
     }
 
     // ===== Upload (single engine: PDF → OpenRouter native) =====
-    const dz = document.getElementById('dropzone');
-    ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
-    ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
-    dz.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
-
     let _procPoll = null;        // active polling interval
     let _procDismissed = false;  // user chose "continue in background"
+    let _procIsPO = false;       // current upload was a PO (poll handles 404 differently)
 
     function dismissProc() {
       _procDismissed = true;
@@ -414,13 +960,13 @@
 
     async function handleFiles(files) {
       const file = files[0];
+      const hint = _pendingHint; _pendingHint = null;
       if (!file) return;
       if (file.type !== 'application/pdf') { showToast('Only PDF files are supported', 'error'); return; }
 
-      // Lock the dropzone — one at a time
-      dz.classList.add('busy');
-      document.getElementById('dzTitle').textContent = `Uploading ${file.name}…`;
-      const fd = new FormData(); fd.append('pdf', file);
+      const fd = new FormData();
+      fd.append('pdf', file);
+      if (hint) fd.append('hint_doc_type', hint);
 
       try {
         const res = await fetch('/api/invoices/upload', { method: 'POST', body: fd });
@@ -429,28 +975,37 @@
 
         // Upload returned instantly with a 'reading' row — show overlay + poll
         loadDocs();
-        startProcessing(data.invoiceId, file.name);
+        startProcessing(data.invoiceId, file.name, hint === 'purchase_order');
       } catch (e) {
         showToast(e.message || 'Upload failed', 'error');
       } finally {
-        dz.classList.remove('busy');
-        document.getElementById('dzTitle').textContent = 'Drop a PDF here, or click to browse';
         document.getElementById('fileInput').value = '';
       }
     }
 
-    function startProcessing(invoiceId, fileName) {
+    function startProcessing(invoiceId, fileName, isPO) {
       _procDismissed = false;
+      _procIsPO = !!isPO;
       document.getElementById('procFile').textContent = fileName;
+      document.getElementById('procTitle').textContent = isPO ? 'Importing your purchase order…' : 'Reading your document…';
       document.getElementById('procOverlay').classList.add('open');
       if (_procPoll) clearInterval(_procPoll);
 
       let elapsed = 0;
       _procPoll = setInterval(async () => {
         elapsed += 2;
-        let s;
-        try { s = await fetch(`/api/invoices/${invoiceId}/status`).then(r => r.json()); }
-        catch (e) { return; } // transient network blip — keep polling
+        let res, s;
+        try {
+          res = await fetch(`/api/invoices/${invoiceId}/status`);
+          // A PO upload deletes its placeholder row on success → 404 means "imported".
+          if (res.status === 404 && _procIsPO) {
+            stopProcessing(); loadDocs();
+            setFilter('po');
+            showToast('Purchase order imported — review matched items');
+            return;
+          }
+          s = await res.json();
+        } catch (e) { return; } // transient network blip — keep polling
 
         if (s.status === 'reading') {
           if (elapsed >= 180) { // safety: shouldn't outlast server reaper
@@ -659,7 +1214,11 @@
         const foot = document.getElementById('rvFoot');
         if (inv.status === 'pending') {
           foot.innerHTML = `
-            <button class="rv-btn-reject" onclick="rvDelete()" title="Delete">🗑</button>
+            <button class="trash-btn" onclick="rvDelete()" title="Delete" style="flex:0 0 auto;padding:8px 12px;">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
+              </svg>
+            </button>
             <button class="rv-btn-reject" onclick="rvReject()">Reject</button>
             <button class="rv-btn-save" onclick="rvSave(false)">Save</button>
             <button class="rv-btn-approve" onclick="rvApprove()">Approve → Tally</button>`;
@@ -673,7 +1232,8 @@
             <button class="rv-btn-save" onclick="closeReview()">Close (${esc(inv.status)})</button>`;
         }
       } catch (e) {
-        document.getElementById('rvBody').innerHTML = '<div style="color:var(--danger)">Failed to load.</div>';
+        console.error('openReview failed:', e);
+        document.getElementById('rvBody').innerHTML = `<div style="color:var(--danger)">Failed to load.</div><div style="color:var(--text-muted);font-size:11px;margin-top:8px;">${esc(e.message || e)}</div>`;
       }
     }
 
@@ -986,16 +1546,10 @@
           </div>
           ${po.dispatch_date ? `<div class="rv-field"><label>Dispatched On</label><input value="${formatDate(po.dispatch_date)}" disabled></div>` : ''}
           <div class="rv-field"><label>Notes</label><input id="po_notes" value="${esc(po.notes||'')}" ${dis}></div>
+          ${po.items.some(i => !i.item_code) ? `<div class="po-existing-item" style="border-color:var(--warning);margin-bottom:8px;"><div><div class="code" style="color:var(--warning);">${po.items.filter(i=>!i.item_code).length} line(s) need an item</div><div class="desc">Imported lines without a matched item — pick one to finish them.</div></div></div>` : ''}
           <div class="rv-section-label">Line items (${po.items.length})</div>
           <div id="poExistingItems">
-            ${po.items.length ? po.items.map(i => `
-              <div class="po-existing-item">
-                <div><div class="code">${esc(i.item_code)}</div><div class="desc">${esc(i.description)||'—'}</div></div>
-                <div style="display:flex;align-items:center;gap:10px;">
-                  <span style="font-size:13px;font-weight:700;">×${i.quantity_ordered}${i.unit_price?' · ₹'+i.unit_price:''}</span>
-                  ${_poEditable ? `<button class="x" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;" onclick="poRemoveItem(${po.id},${i.id})">✕</button>` : ''}
-                </div>
-              </div>`).join('') : '<div style="color:var(--text-muted);font-size:12px;">No items yet</div>'}
+            ${po.items.length ? po.items.map(i => poItemRow(po.id, i)).join('') : '<div style="color:var(--text-muted);font-size:12px;">No items yet</div>'}
           </div>
           ${_poEditable ? `
             <div class="po-item-row" style="margin-top:8px;">
@@ -1027,6 +1581,45 @@
       } catch (e) {
         document.getElementById('rvBody').innerHTML = '<div style="color:var(--danger)">Failed to load.</div>';
       }
+    }
+
+    // Renders one PO line. Matched lines (have item_code) show as before.
+    // Unmatched imported lines (item_code null) show their source description
+    // from `notes` plus an inline item picker to resolve them.
+    function poItemRow(poId, i) {
+      const qtyPrice = `×${i.quantity_ordered}${i.unit_price ? ' · ₹' + i.unit_price : ''}`;
+      const removeBtn = _poEditable
+        ? `<button class="x" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;" onclick="poRemoveItem(${poId},${i.id})">✕</button>`
+        : '';
+      if (i.item_code) {
+        return `<div class="po-existing-item">
+          <div><div class="code">${esc(i.item_code)}</div><div class="desc">${esc(i.description)||'—'}</div></div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:13px;font-weight:700;">${qtyPrice}</span>
+            ${removeBtn}
+          </div>
+        </div>`;
+      }
+      // Unmatched line — description lives in notes; offer an assign picker.
+      const picker = _poEditable
+        ? `<select onchange="poAssignItem(${poId},${i.id},this.value)" style="font-family:var(--font);font-size:12px;background:var(--surface);border:1px solid var(--warning);border-radius:var(--radius);color:var(--text);padding:6px 8px;max-width:180px;">${poItemOptions('')}</select>`
+        : '';
+      return `<div class="po-existing-item" style="border-color:var(--warning);">
+        <div style="min-width:0;"><div class="code" style="color:var(--warning);">Needs item</div><div class="desc">${esc(i.notes)||esc(i.description)||'—'}</div></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          ${picker}
+          <span style="font-size:13px;font-weight:700;white-space:nowrap;">${qtyPrice}</span>
+          ${removeBtn}
+        </div>
+      </div>`;
+    }
+
+    async function poAssignItem(poId, itemId, itemCode) {
+      if (!itemCode) return;
+      try {
+        await api(`/api/po/${poId}/items/${itemId}`, { method: 'PATCH', body: { item_code: itemCode } });
+        showToast('Item assigned'); openPO(poId);
+      } catch (e) {}
     }
 
     async function poSave(id) {

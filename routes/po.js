@@ -1,3 +1,5 @@
+// route/po.js
+
 const express = require('express');
 const router = express.Router();
 const { queryAll, queryOne, execute, nowIST } = require('../db/schema');
@@ -6,6 +8,146 @@ async function nextSysPONumber() {
   await execute("UPDATE counters SET value = value + 1 WHERE name = 'po_sys'");
   const row = await queryOne("SELECT value FROM counters WHERE name = 'po_sys'");
   return `SYS-${row.value}`;
+}
+
+// ── Fuzzy item matching ───────────────────────────────────────────────
+// Extracted PO lines carry free-text descriptions, not our internal item
+// codes. Match each against the items master: exact normalized hit wins;
+// otherwise a token-overlap score above THRESHOLD takes the best candidate;
+// otherwise the line is kept with item_code = null for manual assignment.
+const MATCH_THRESHOLD = 0.6;
+const STOPWORDS = new Set(['the','a','an','of','for','and','or','with','to','in','mm','pcs','set','no','x']);
+
+function normalizeText(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function tokenize(s) {
+  return normalizeText(s).split(' ').filter(t => t.length > 1 && !STOPWORDS.has(t));
+}
+function tokenOverlapScore(a, b) {
+  const ta = new Set(tokenize(a));
+  const tb = new Set(tokenize(b));
+  if (!ta.size || !tb.size) return 0;
+  let shared = 0;
+  for (const t of ta) if (tb.has(t)) shared++;
+  // Jaccard-ish: shared over the union, so neither side dominates.
+  return shared / (ta.size + tb.size - shared);
+}
+
+// Returns { item_code, matched } for a single extracted description.
+function matchItem(description, items, normIndex) {
+  const norm = normalizeText(description);
+  if (!norm) return { item_code: null, matched: false };
+  // 1. exact normalized description match
+  const exact = normIndex.get(norm);
+  if (exact) return { item_code: exact, matched: true };
+  // 2. best token-overlap above threshold
+  let best = null, bestScore = 0;
+  for (const it of items) {
+    const score = Math.max(
+      tokenOverlapScore(description, it.description || ''),
+      tokenOverlapScore(description, it.item_code || '')
+    );
+    if (score > bestScore) { bestScore = score; best = it; }
+  }
+  if (best && bestScore >= MATCH_THRESHOLD) return { item_code: best.item_code, matched: true };
+  return { item_code: null, matched: false };
+}
+
+// ── Shared PO insert core ─────────────────────────────────────────────
+// Used by both the HTTP create route and the extraction import path.
+// `lines` are already-resolved { item_code, quantity_ordered, unit_price, notes }.
+async function insertPO({ po_number, po_source, company_id, contact_id, order_date,
+                          expected_dispatch_date, notes, created_by, lines }) {
+  const r = await execute(
+    `INSERT INTO crm_purchase_orders
+       (po_number, po_source, company_id, contact_id, order_date,
+        expected_dispatch_date, notes, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [po_number, po_source, company_id, contact_id || null,
+     order_date || null, expected_dispatch_date || null,
+     notes || null, created_by, nowIST(), nowIST()]
+  );
+  const poId = Number(r.lastId);
+  if (Array.isArray(lines)) {
+    for (const line of lines) {
+      if (!line.quantity_ordered) continue;
+      await execute(
+        `INSERT INTO crm_po_items
+           (po_id, item_code, quantity_ordered, unit_price, notes)
+         VALUES (?, ?, ?, ?, ?)`,
+        [poId, line.item_code || null, line.quantity_ordered,
+         line.unit_price || null, line.notes || null]
+      );
+    }
+  }
+  return poId;
+}
+
+// ── Create a PO draft from an extracted document ──────────────────────
+// Called by routes/invoices.js after a PO PDF is parsed. Fuzzy-matches
+// extracted lines to the items master; unmatched lines keep their
+// description in `notes` with item_code = null so the panel can flag them.
+// Resolves party_name → company_id where an exact company name match exists;
+// otherwise stashes the supplier name in the PO notes for the reviewer.
+async function createPOFromExtraction(inv, createdBy) {
+  const po_number = (inv.invoice_no && inv.invoice_no.trim())
+    ? inv.invoice_no.trim()
+    : await nextSysPONumber();
+  const po_source = 'upload';
+
+  // Resolve company by exact (case-insensitive) name match.
+  let company_id = null, supplierNote = null;
+  if (inv.party_name) {
+    const co = await queryOne(
+      'SELECT id FROM crm_companies WHERE lower(trim(name)) = lower(trim(?))',
+      [inv.party_name]
+    );
+    if (co) company_id = co.id;
+    else supplierNote = `Supplier (unmatched): ${inv.party_name}`;
+  }
+
+  // Load items master once for matching.
+  const items = await queryAll(
+    "SELECT item_code, description FROM items WHERE status = 'active'"
+  );
+  const normIndex = new Map();
+  for (const it of items) {
+    const k = normalizeText(it.description);
+    if (k && !normIndex.has(k)) normIndex.set(k, it.item_code);
+  }
+
+  const rawLines = Array.isArray(inv.line_items) ? inv.line_items : [];
+  const lines = rawLines.map(li => {
+    const qty = parseInt(li.qty) || 1;
+    const { item_code, matched } = matchItem(li.description, items, normIndex);
+    return {
+      item_code,
+      quantity_ordered: qty,
+      unit_price: (li.rate != null && li.rate !== '') ? parseFloat(li.rate) : null,
+      // Unmatched lines preserve their source description here so the panel
+      // can render them and the reviewer can assign a real item_code.
+      notes: matched ? null : (li.description || '').trim() || null,
+    };
+  });
+
+  const noteParts = [];
+  if (supplierNote) noteParts.push(supplierNote);
+  const unmatchedCount = lines.filter(l => !l.item_code).length;
+  if (unmatchedCount) noteParts.push(`${unmatchedCount} line(s) need an item assigned`);
+
+  const poId = await insertPO({
+    po_number,
+    po_source,
+    company_id,
+    contact_id: null,
+    order_date: inv.invoice_date || null,
+    expected_dispatch_date: inv.delivery_date || null,
+    notes: noteParts.join(' · ') || null,
+    created_by: createdBy,
+    lines,
+  });
+  return { id: poId, po_number, company_id, unmatched: unmatchedCount };
 }
 
 // LIST — filterable by status, company_id
@@ -67,31 +209,23 @@ router.post('/', async (req, res) => {
     po_source = 'manual';
   }
 
+  const lines = Array.isArray(items)
+    ? items
+        .filter(item => item.item_code && item.quantity_ordered)
+        .map(item => ({
+          item_code: item.item_code,
+          quantity_ordered: item.quantity_ordered,
+          unit_price: item.unit_price || null,
+          notes: item.notes || null,
+        }))
+    : [];
+
   try {
-    const r = await execute(
-      `INSERT INTO crm_purchase_orders
-         (po_number, po_source, company_id, contact_id, order_date,
-          expected_dispatch_date, notes, created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [po_number, po_source, company_id, contact_id || null,
-       order_date || null, expected_dispatch_date || null,
-       notes || null, req.user.username, nowIST(), nowIST()]
-    );
-    const poId = Number(r.lastId);
-
-    if (Array.isArray(items)) {
-      for (const item of items) {
-        if (!item.item_code || !item.quantity_ordered) continue;
-        await execute(
-          `INSERT INTO crm_po_items
-             (po_id, item_code, quantity_ordered, unit_price, notes)
-           VALUES (?, ?, ?, ?, ?)`,
-          [poId, item.item_code, item.quantity_ordered,
-           item.unit_price || null, item.notes || null]
-        );
-      }
-    }
-
+    const poId = await insertPO({
+      po_number, po_source, company_id,
+      contact_id, order_date, expected_dispatch_date,
+      notes, created_by: req.user.username, lines,
+    });
     res.json({ success: true, id: poId, po_number, message: `PO ${po_number} created` });
   } catch (err) {
     if (err.message?.includes('UNIQUE'))
@@ -171,6 +305,33 @@ router.post('/:id/items', async (req, res) => {
     [req.params.id, item_code, quantity_ordered, unit_price || null, notes || null]
   );
   res.json({ success: true, id: Number(r.lastId) });
+});
+
+// UPDATE LINE ITEM — assign/replace item_code (used to resolve unmatched
+// lines from an uploaded PO) and adjust qty/price/notes.
+router.patch('/:id/items/:itemId', async (req, res) => {
+  const po = await queryOne(
+    'SELECT status FROM crm_purchase_orders WHERE id = ?',
+    [req.params.id]
+  );
+  if (!po) return res.status(404).json({ error: 'PO not found' });
+  if (['dispatched', 'cancelled'].includes(po.status))
+    return res.status(400).json({ error: `Cannot modify a ${po.status} PO` });
+
+  const allowed = ['item_code', 'quantity_ordered', 'unit_price', 'notes'];
+  const fields = {};
+  for (const k of allowed) if (req.body[k] !== undefined) fields[k] = req.body[k];
+  if (!Object.keys(fields).length)
+    return res.status(400).json({ error: 'Nothing to update' });
+
+  const sets = Object.keys(fields).map(k => `${k} = ?`).join(', ');
+  const values = [...Object.values(fields), req.params.itemId, req.params.id];
+  const r = await execute(
+    `UPDATE crm_po_items SET ${sets} WHERE id = ? AND po_id = ?`,
+    values
+  );
+  if (!r.changes) return res.status(404).json({ error: 'Item not found' });
+  res.json({ success: true });
 });
 
 // REMOVE LINE ITEM
@@ -292,3 +453,4 @@ router.post('/:id/cancel', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.createPOFromExtraction = createPOFromExtraction;
