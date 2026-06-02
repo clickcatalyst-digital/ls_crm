@@ -98,13 +98,33 @@ async function createPOFromExtraction(inv, createdBy) {
 
   // Resolve company by exact (case-insensitive) name match.
   let company_id = null, supplierNote = null;
-  if (inv.party_name) {
+  if (inv.party_name && inv.party_name.trim()) {
     const co = await queryOne(
       'SELECT id FROM crm_companies WHERE lower(trim(name)) = lower(trim(?))',
       [inv.party_name]
     );
-    if (co) company_id = co.id;
-    else supplierNote = `Supplier (unmatched): ${inv.party_name}`;
+    if (co) {
+      company_id = co.id;
+    } else {
+      // Dynamic fallback: To satisfy the database NOT NULL constraint, 
+      // automatically provision a clean company stub entry on the fly.
+      const newCo = await execute(
+        'INSERT INTO crm_companies (name) VALUES (?)',
+        [inv.party_name.trim()]
+      );
+      company_id = Number(newCo.lastId);
+      supplierNote = `New Supplier Provisioned: ${inv.party_name.trim()}`;
+    }
+  } else {
+    // Hard fallback safety logic if the AI payload is missing a vendor name entirely
+    const fallbackCo = await queryOne("SELECT id FROM crm_companies WHERE lower(name) = 'unknown supplier' LIMIT 1");
+    if (fallbackCo) {
+      company_id = fallbackCo.id;
+    } else {
+      const newCo = await execute("INSERT INTO crm_companies (name) VALUES ('Unknown Supplier')");
+      company_id = Number(newCo.lastId);
+    }
+    supplierNote = 'Supplier identity missing from extraction payload';
   }
 
   // Load items master once for matching.
