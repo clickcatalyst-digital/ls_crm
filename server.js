@@ -21,6 +21,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 function requireLogin(req, res, next) {
+  // Allow Telegram's incoming webhooks to bypass browser authentication checks
+  if (req.path === '/api/invoices/telegram-webhook') return next();
+
   const token = req.headers['authorization']?.replace('Bearer ', '')
     || req.cookies?.token;
   if (token) {
