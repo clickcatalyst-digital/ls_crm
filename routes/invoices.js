@@ -931,8 +931,12 @@ router.post('/telegram-webhook', async (req, res) => {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '🏦 Bank Statement', callback_data: `tg_bank:${invoiceId}` },
-                { text: '🛒 Purchase Order', callback_data: `tg_po:${invoiceId}` }
+                { text: '🏦 Bank Statement', callback_data: `tg_act:bank_statement:${invoiceId}` },
+                { text: '🛒 Purchase Order', callback_data: `tg_act:purchase_order:${invoiceId}` }
+              ],
+              [
+                { text: '📄 Invoice...', callback_data: `tg_sub:invoice:${invoiceId}` },
+                { text: '🛃 Bill of Entry', callback_data: `tg_act:bill_of_entry:${invoiceId}` }
               ]
             ]
           }
@@ -949,54 +953,84 @@ router.post('/telegram-webhook', async (req, res) => {
     const dataStr = callback_query.data;
     if (!dataStr.startsWith('tg_')) return;
 
-    const [action, invoiceId] = dataStr.replace('tg_', '').split(':');
-    const hint = action === 'bank' ? 'bank_statement' : 'purchase_order';
     const chatId = callback_query.message?.chat?.id;
     const messageId = callback_query.message?.message_id;
 
-    try {
-      // 1. Fetch the entry back to resolve our cached file tracking ID
-      const inv = await queryOne('SELECT original_filename, tally_xml FROM crm_invoices WHERE id = ?', [invoiceId]);
-      if (!inv || !inv.tally_xml) return;
+    // Submenu router fork logic: User tapped the top-tier Invoice item button
+    if (dataStr.startsWith('tg_sub:invoice:')) {
+      const invoiceId = dataStr.split(':')[2];
+      try {
+        await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            message_id: messageId,
+            text: `📄 Select the specific invoice type:`,
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '🛍️ Purchase Invoice', callback_data: `tg_act:purchase_invoice:${invoiceId}` },
+                  { text: '🚚 Freight / Logistics', callback_data: `tg_act:freight_invoice:${invoiceId}` }
+                ]
+              ]
+            }
+          })
+        });
+      } catch (err) {
+        console.error('Telegram invoice submenu display failed:', err.message);
+      }
+      return;
+    }
 
-      const fileId = inv.tally_xml;
-      const filename = inv.original_filename;
+    // Direct Action routing layer execution block
+    if (dataStr.startsWith('tg_act:')) {
+      const [_, hint, invoiceId] = dataStr.split(':');
 
-      // 2. Clear the scratch space, set classification target, and advance ingestion status
-      await execute(
-        `UPDATE crm_invoices SET doc_type = ?, status = 'reading', tally_xml = '' WHERE id = ?`,
-        [hint, invoiceId]
-      );
+      try {
+        // 1. Fetch the entry back to resolve our cached file tracking ID
+        const inv = await queryOne('SELECT original_filename, tally_xml FROM crm_invoices WHERE id = ?', [invoiceId]);
+        if (!inv || !inv.tally_xml) return;
 
-      await execute(
-        `INSERT INTO crm_tasks (title, due_date, status, assigned_to, created_by, created_at, invoice_id)
-         VALUES (?, ?, 'open', 'system', 'system', ?, ?)`,
-        [`Review Telegram upload: ${filename}`, nowIST().substring(0, 10), nowIST(), invoiceId]
-      );
+        const fileId = inv.tally_xml;
+        const filename = inv.original_filename;
 
-      // Instantly modify the Telegram message to give visual progress confirmation.
-      await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          message_id: messageId,
-          text: `⚙️ Processing *${filename}* as a *${hint.replace('_', ' ').toUpperCase()}*...`
-        })
-      });
+        // 2. Clear the scratch space, set classification target, and advance ingestion status
+        await execute(
+          `UPDATE crm_invoices SET doc_type = ?, status = 'reading', tally_xml = '' WHERE id = ?`,
+          [hint, invoiceId]
+        );
 
-      // 3. Request actual content delivery routes from Telegram master API nodes
-      const fileInfoRes = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`);
-      const fileInfo = await fileInfoRes.json();
-      if (!fileInfo.ok || !fileInfo.result?.file_path) return;
+        await execute(
+          `INSERT INTO crm_tasks (title, due_date, status, assigned_to, created_by, created_at, invoice_id)
+           VALUES (?, ?, 'open', 'system', 'system', ?, ?)`,
+          [`Review Telegram upload: ${filename}`, nowIST().substring(0, 10), nowIST(), invoiceId]
+        );
 
-      const fileRes = await fetch(`https://api.telegram.org/file/bot${token}/${fileInfo.result.file_path}`);
-      const buffer = Buffer.from(await fileRes.arrayBuffer());
+        // Instantly modify the Telegram message to give visual progress confirmation.
+        await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            message_id: messageId,
+            text: `⚙️ Processing *${filename}* as a *${hint.replace('_', ' ').toUpperCase()}*...`
+          })
+        });
 
-      // 4. Delegate to your production multimodal extraction worker pool asynchronously
-      runExtraction(invoiceId, buffer, hint);
-    } catch (err) {
-      console.error('Telegram button event lifecycle processing failed:', err.message);
+        // 3. Request actual content delivery routes from Telegram master API nodes
+        const fileInfoRes = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`);
+        const fileInfo = await fileInfoRes.json();
+        if (!fileInfo.ok || !fileInfo.result?.file_path) return;
+
+        const fileRes = await fetch(`https://api.telegram.org/file/bot${token}/${fileInfo.result.file_path}`);
+        const buffer = Buffer.from(await fileRes.arrayBuffer());
+
+        // 4. Delegate to your production multimodal extraction worker pool asynchronously
+        runExtraction(invoiceId, buffer, hint);
+      } catch (err) {
+        console.error('Telegram button event lifecycle processing failed:', err.message);
+      }
     }
   }
 });
