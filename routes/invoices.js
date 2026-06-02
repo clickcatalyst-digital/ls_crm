@@ -103,7 +103,7 @@ const SCHEMA_BLOCK = `Return ONLY raw JSON (no markdown, no prose). Use null for
   "account_no": string|null, "statement_from": string|null, "statement_to": string|null,
   "opening_balance": number|null, "closing_balance": number|null,
   "total_debit": number|null, "total_credit": number|null,
-  "line_items": [{ "description": string, "hsn": string|null, "qty": number|null, "uom": string|null, "rate": number|null, "amount": number|null, "date": string|null, "delivery_date": string|null }]
+  "line_items": [{ "si_no": number|null, "tran_id": string|null, "description": string, "hsn": string|null, "qty": number|null, "uom": string|null, "rate": number|null, "amount": number|null, "date": string|null, "delivery_date": string|null }]
 }`;
 
 // ── Shared party identity rule (LS Technologies is always the buyer) ──
@@ -141,11 +141,23 @@ Rules:
 - Each charge line (basic customs duty / BCD, IGST on import, freight, insurance) → line_item with a clear description and amount so it routes to the right import ledger.
 - ${NUM_RULE}`,
 
+//   purchase_order: `You are a precise data extraction system for Indian Purchase Orders.
+// ${SCHEMA_BLOCK}
+// Rules:
+// - doc_type is "purchase_order".
+// - party_name is the company in the LETTERHEAD who issued this PO (the buyer placing the order with LS Technologies as their vendor).
+// - CRITICAL FOR GSTIN: In this document, "24AAKFL3607J1ZB" belongs to LS TECHNOLOGIES and MUST be mapped to buyer_gstin. "24AACCG5735H1ZQ" belongs to GELCO ELECTRONICS and MUST be mapped to party_gstin. Do not swap them.
+// - invoice_no = the PO Number as labeled ('P.O. No.', 'PO No.', 'P.O. Number', etc.).
+// - delivery_date = the EARLIEST delivery date across all line items (YYYY-MM-DD). Each line item must also carry its own delivery_date (YYYY-MM-DD).
+// - Each ordered item → line_item with description, hsn, qty, uom, rate, amount, delivery_date.
+// - ${NUM_RULE}`,
+
   purchase_order: `You are a precise data extraction system for Indian Purchase Orders.
 ${SCHEMA_BLOCK}
 Rules:
 - doc_type is "purchase_order".
-- party_name is the company in the LETTERHEAD who issued this PO (the buyer placing the order with LS Technologies as their vendor). Do not worry about GSTIN assignment — POs never generate accounting vouchers; leave party_gstin/buyer_gstin as found.
+- party_name is the company in the LETTERHEAD who issued this PO (the buyer placing the order with LS Technologies as their vendor).
+- CRITICAL FOR GSTIN ASSIGNMENT: Identify the GSTIN explicitly associated with the company in the letterhead (the issuer/buyer) and assign it to "party_gstin". Identify the GSTIN explicitly associated with "LS TECHNOLOGIES" / "L S TECHNOLOGIES" and assign it to "buyer_gstin". Do not swap them based on document page reading order.
 - invoice_no = the PO Number as labeled ('P.O. No.', 'PO No.', 'P.O. Number', etc.).
 - delivery_date = the EARLIEST delivery date across all line items (YYYY-MM-DD). Each line item must also carry its own delivery_date (YYYY-MM-DD).
 - Each ordered item → line_item with description, hsn, qty, uom, rate, amount, delivery_date.
@@ -157,8 +169,8 @@ Rules:
 - doc_type is "bank_statement".
 - account_no = the account number. statement_from / statement_to = period start/end (YYYY-MM-DD). invoice_date = statement download/generation date.
 - opening_balance / closing_balance from the summary section. total_debit = total withdrawals, total_credit = total deposits.
-- Each transaction → line_item with date, description (transaction remarks), amount. Cap at 50 line items. Each description must be a single clean line — collapse embedded newlines into a single space.
-- CRITICAL for signs: use the running balance column between consecutive rows — if the balance decreases the transaction is a DEBIT (negative amount); if it increases it is a CREDIT (positive amount). Never guess sign from description keywords. Three overrides: (1) 'Int.Coll' = interest charged by the bank = DEBIT = negative. (2) Any NEFT/RTGS/IMPS/INF transfer where 'LS TECHNOLOGIES' / 'L S TECHNOLOGIES' is the beneficiary = money IN = CREDIT = positive. (3) opening_balance must be read from the 'Opening Bal' line in the Page Total / summary at the end (NOT the balance after the first row) — preserve its negative sign if overdrawn.
+- Each transaction → line_item with si_no (the sequential SI No from the first column), date, description (transaction remarks), amount. Process all transactions present in the document sequentially. Each description must be a single clean line — collapse embedded newlines into a single space, and strictly remove or escape any raw double quotes (") or backslashes (\) to maintain valid JSON string boundaries.
+- CRITICAL for signs: This is an Overdraft Account (Negative Baseline). Look at the 'Withdrawal (Dr)' and 'Deposit (Cr)' headers directly. Any transaction under 'Withdrawal (Dr)' MUST be formatted as a negative number. Any transaction under 'Deposit (Cr)' MUST be formatted as a positive number. Three overrides: (1) 'Int.Coll' = interest charged by the bank = DEBIT = negative. (2) Any NEFT/RTGS/IMPS/INF transfer where 'LS TECHNOLOGIES' / 'L S TECHNOLOGIES' is the beneficiary = money IN = CREDIT = positive. (3) opening_balance must be read from the 'Opening Bal' line in the Page Total / summary at the end (NOT the balance after the first row) — preserve its negative sign if overdrawn.
 - ${NUM_RULE}`,
 };
 
@@ -201,7 +213,11 @@ async function callOpenRouter(body) {
     return JSON.parse(raw);
   } catch (e) {
     const first = raw.indexOf('{'), last = raw.lastIndexOf('}');
-    if (first !== -1 && last > first) return JSON.parse(raw.slice(first, last + 1));
+    if (first !== -1 && last > first) {
+      let cleanStr = raw.slice(first, last + 1);
+      cleanStr = cleanStr.replace(/\n/g, ' ').replace(/,\s*([\]}])/g, '$1');
+      try { return JSON.parse(cleanStr); } catch (e2) {}
+    }
     throw e;
   }
 }
@@ -240,8 +256,54 @@ function classifyExtractError(msg) {
   return 'Extraction error';
 }
 
+// async function parseInvoice(buffer, hint) {
+//   const b64 = buffer.toString('base64');
+//   const parsed = await callOpenRouter({
+//     model: process.env.EXTRACTION_MODEL || 'google/gemini-2.5-flash',
+//     temperature: 0,
+//     messages: [{ role: 'user', content: [
+//       { type: 'text', text: promptFor(hint) },
+//       { type: 'file', file: { filename: 'doc.pdf', file_data: `data:application/pdf;base64,${b64}` } }
+//     ]}],
+//     max_tokens: 8192,
+//     plugins: [{ id: 'file-parser', pdf: { engine: 'pdf-text' } }],
+//   });
+//   return normalizeExtraction(parsed, hint);
+// }
+
 async function parseInvoice(buffer, hint) {
   const b64 = buffer.toString('base64');
+  if (hint === 'bank_statement') {
+    let aggregated = null;
+    for (let page = 1; page <= 8; page++) {
+      const parsed = await callOpenRouter({
+        model: process.env.EXTRACTION_MODEL || 'google/gemini-2.5-flash',
+        temperature: 0,
+        messages: [{ role: 'user', content: [
+          { type: 'text', text: promptFor(hint) + `\nCRITICAL: Process ONLY transactions listed under "--- PAGE ${page} ---". Ignore all other pages. If no transactions exist on this page, return an empty line_items array.` },
+          { type: 'file', file: { filename: 'doc.pdf', file_data: `data:application/pdf;base64,${b64}` } }
+        ]}],
+        max_tokens: 8192,
+        plugins: [{ id: 'file-parser', pdf: { engine: 'pdf-text' } }],
+      });
+      if (!aggregated) { 
+        aggregated = parsed; 
+        if (!Array.isArray(aggregated.line_items)) aggregated.line_items = []; 
+      } else if (parsed && Array.isArray(parsed.line_items)) { 
+        aggregated.line_items.push(...parsed.line_items); 
+      }
+    }
+    if (aggregated && Array.isArray(aggregated.line_items)) {
+      const seenSis = new Set();
+      aggregated.line_items = aggregated.line_items.filter(item => {
+        if (!item.si_no) return true; // Safety fallback
+        if (seenSis.has(item.si_no)) return false;
+        seenSis.add(item.si_no);
+        return true;
+      });
+    }
+    return normalizeExtraction(aggregated || {}, hint);
+  }
   const parsed = await callOpenRouter({
     model: process.env.EXTRACTION_MODEL || 'google/gemini-2.5-flash',
     temperature: 0,
@@ -832,6 +894,111 @@ router.get('/:id/xml', async (req, res) => {
   res.setHeader('Content-Type', 'application/xml');
   res.setHeader('Content-Disposition', `attachment; filename="tally_${inv.invoice_no || req.params.id}.xml"`);
   res.send(inv.tally_xml);
+});
+
+// Interactive Telegram Bot Webhook Integration with Inline Buttons
+router.post('/telegram-webhook', async (req, res) => {
+  res.sendStatus(200); // Acknowledge instantly to prevent Telegram timeout retry loops
+
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+
+  const { message, callback_query } = req.body || {};
+
+  // Scenario 1: User sends a brand new PDF document
+  if (message?.document && message.document.mime_type === 'application/pdf') {
+    const doc = message.document;
+    const senderName = `Telegram: ${message.from?.username || message.from?.first_name || 'User'}`;
+    const filename = doc.file_name || 'telegram_upload.pdf';
+
+    try {
+      // Create a temporary placeholder row, saving the file_id inside tally_xml column to handle state
+      const result = await execute(
+        `INSERT INTO crm_invoices (uploaded_by, original_filename, doc_type, status, line_items, tally_xml)
+         VALUES (?, ?, null, 'pending_type', '[]', ?)`,
+        [senderName, filename, doc.file_id]
+      );
+      const invoiceId = Number(result.lastId);
+
+      // Push an interactive inline keyboard choice panel to the user's mobile screen
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: message.chat.id,
+          text: `📄 Received file: *${filename}*\n\nPlease select the document classification type to begin parsing:`,
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🏦 Bank Statement', callback_data: `tg_bank:${invoiceId}` },
+                { text: '🛒 Purchase Order', callback_data: `tg_po:${invoiceId}` }
+              ]
+            ]
+          }
+        })
+      });
+    } catch (err) {
+      console.error('Telegram tracking initialization failed:', err.message);
+    }
+    return;
+  }
+
+  // Scenario 2: User taps an option button on their inline keyboard layout
+  if (callback_query?.data) {
+    const dataStr = callback_query.data;
+    if (!dataStr.startsWith('tg_')) return;
+
+    const [action, invoiceId] = dataStr.replace('tg_', '').split(':');
+    const hint = action === 'bank' ? 'bank_statement' : 'purchase_order';
+    const chatId = callback_query.message?.chat?.id;
+    const messageId = callback_query.message?.message_id;
+
+    try {
+      // 1. Fetch the entry back to resolve our cached file tracking ID
+      const inv = await queryOne('SELECT original_filename, tally_xml FROM crm_invoices WHERE id = ?', [invoiceId]);
+      if (!inv || !inv.tally_xml) return;
+
+      const fileId = inv.tally_xml;
+      const filename = inv.original_filename;
+
+      // 2. Clear the scratch space, set classification target, and advance ingestion status
+      await execute(
+        `UPDATE crm_invoices SET doc_type = ?, status = 'reading', tally_xml = '' WHERE id = ?`,
+        [hint, invoiceId]
+      );
+
+      await execute(
+        `INSERT INTO crm_tasks (title, due_date, status, assigned_to, created_by, created_at, invoice_id)
+         VALUES (?, ?, 'open', 'system', 'system', ?, ?)`,
+        [`Review Telegram upload: ${filename}`, nowIST().substring(0, 10), nowIST(), invoiceId]
+      );
+
+      // Instantly modify the Telegram message to give visual progress confirmation
+      await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          message_id: messageId,
+          text: `⚙️ Processing *${filename}* as a *${hint.replace('_', ' ').toUpperCase()}*...`
+        })
+      });
+
+      // 3. Request actual content delivery routes from Telegram master API nodes
+      const fileInfoRes = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`);
+      const fileInfo = await fileInfoRes.json();
+      if (!fileInfo.ok || !fileInfo.result?.file_path) return;
+
+      const fileRes = await fetch(`https://api.telegram.org/file/bot${token}/${fileInfo.result.file_path}`);
+      const buffer = Buffer.from(await fileRes.arrayBuffer());
+
+      // 4. Delegate to your production multimodal extraction worker pool asynchronously
+      runExtraction(invoiceId, buffer, hint);
+    } catch (err) {
+      console.error('Telegram button event lifecycle processing failed:', err.message);
+    }
+  }
 });
 
 module.exports = router;
