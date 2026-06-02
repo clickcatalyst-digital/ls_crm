@@ -424,6 +424,12 @@ async function runExtraction(invoiceId, buffer, hint, chatId = null) {
       [classifyExtractError(err.message), invoiceId]
     );
 
+    // Pivot the stalled loading task title into a descriptive error alert on your dashboard timeline
+    await execute(
+      "UPDATE crm_tasks SET title = ? WHERE invoice_id = ? AND status = 'open'",
+      ['⚠️ Extraction Failed — Review Error Log on Dashboard', invoiceId]
+    );
+
     if (chatId && botToken) {
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
@@ -923,17 +929,25 @@ router.post('/:id/reject', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  const inv = await queryOne('SELECT status, task_id FROM crm_invoices WHERE id = ?', [req.params.id]);
+  const inv = await queryOne('SELECT status FROM crm_invoices WHERE id = ?', [req.params.id]);
   if (!inv) return res.status(404).json({ error: 'Not found' });
-  if (inv.task_id) {
-    await execute("UPDATE crm_tasks SET status='done', completed_at=? WHERE id=? AND status!='done'",
-      [nowIST(), inv.task_id]);
-  }
+
   if (inv.status === 'pushed') {
+    // Soft delete: Find and close ALL active tasks linked to this specific invoice layout
+    await execute(
+      "UPDATE crm_tasks SET status='done', completed_at=? WHERE invoice_id=? AND status!='done'",
+      [nowIST(), req.params.id]
+    );
     await execute('UPDATE crm_invoices SET deleted_at = ? WHERE id = ?', [nowIST(), req.params.id]);
-    return res.json({ success: true, soft: true,
-      message: 'Record was pushed to Tally — archived, not erased. Reverse the voucher in Tally if needed.' });
+    return res.json({ 
+      success: true, 
+      soft: true,
+      message: 'Record was pushed to Tally — archived, not erased. Reverse the voucher in Tally if needed.' 
+    });
   }
+
+  // Hard delete: Cleanly wipe out all associated tasks to prevent orphaned calendar entries entirely
+  await execute('DELETE FROM crm_tasks WHERE invoice_id = ?', [req.params.id]);
   await execute('DELETE FROM crm_invoices WHERE id = ?', [req.params.id]);
   res.json({ success: true, soft: false });
 });

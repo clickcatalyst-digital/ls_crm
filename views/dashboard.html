@@ -374,6 +374,57 @@
     cursor: pointer; transition: opacity 0.15s; white-space: nowrap; flex-shrink: 0;
     }
     .ov-btn-log:hover { opacity: 0.85; }
+    /* ===== Sleek Premium Calendar Overview Details Modal ===== */
+    .cal-det-overlay {
+      position: fixed; inset: 0; z-index: 950;
+      background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+    }
+    .cal-det-overlay.open { opacity: 1; pointer-events: all; }
+    .cal-det-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      width: 440px; max-width: 90vw; max-height: 75vh; display: flex; flex-direction: column;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.25); transform: scale(0.96); transition: transform 0.2s ease;
+      overflow: hidden;
+    }
+    .cal-det-overlay.open .cal-det-card { transform: scale(1); }
+    .cd-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .cd-title { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text); }
+    .cd-count-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text-muted); }
+    .cd-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; font-family: var(--font); padding: 4px; transition: color 0.15s; }
+    .cd-close:hover { color: var(--danger); }
+    .cd-body { padding: 20px; overflow-y: auto; flex: 1; }
+    .cd-item { display: flex; flex-direction: column; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; transition: border-color 0.15s, background 0.15s; cursor: pointer; }
+    .cd-item:hover { border-color: var(--text-muted); background: var(--surface); }
+    .cd-item-poc { font-weight: 700; font-size: 12.5px; color: var(--text); }
+    .cd-item-title { font-size: 12px; margin-top: 2px; color: var(--text-muted); }
+    .cd-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 36px 0; font-style: italic; }
+    
+    /* Premium Inline Quick Task Creator Field Groups */
+    .cd-quick-create { padding: 14px 20px; border-top: 1px solid var(--border); background: var(--bg); display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+    .cd-input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; color: var(--text); font-family: var(--font); font-size: 12px; }
+    .cd-input:focus { outline: none; border-color: var(--primary); }
+    .cd-btn { background: var(--primary); color: #fff; border: none; border-radius: var(--radius); padding: 8px 14px; font-family: var(--font); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; cursor: pointer; transition: opacity 0.15s; }
+    .cd-btn:hover { opacity: 0.9; }
+    .cd-jump-btn { width: 100%; text-align: center; background: transparent; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; font-family: var(--font); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text); cursor: pointer; transition: all 0.15s; }
+    .cd-jump-btn:hover { background: var(--text); color: #fff; border-color: var(--text); }
+    /* ===== Premium Minimalist Origin Color-Coding ===== */
+    .cal-task.origin-manual { border-left-color: #eab308 !important; }
+    .cal-task.origin-po     { border-left-color: #3b82f6 !important; }
+    .cal-task.origin-client { border-left-color: #a855f7 !important; }
+    .cal-task.origin-doc    { border-left-color: #14b8a6 !important; }
+
+    /* Modal Item Variations matching dark/light variables dynamically */
+    .cd-item.origin-manual { border-left: 3px solid #eab308 !important; background: color-mix(in srgb, #eab308 6%, var(--bg)); }
+    .cd-item.origin-po     { border-left: 3px solid #3b82f6 !important; background: color-mix(in srgb, #3b82f6 6%, var(--bg)); }
+    .cd-item.origin-client { border-left: 3px solid #a855f7 !important; background: color-mix(in srgb, #a855f7 6%, var(--bg)); }
+    .cd-item.origin-doc    { border-left: 3px solid #14b8a6 !important; background: color-mix(in srgb, #14b8a6 6%, var(--bg)); }
+
+    /* Deletion Triggers inside the Details Overlay */
+    .cd-item-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .cd-trash-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; transition: all 0.15s; }
+    .cd-trash-btn:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
   </style>
 </head>
 <body>
@@ -443,7 +494,7 @@
     <main class="crm-main">
       <div class="page-header">
         <h1 id="welcomeHead">Home</h1>
-        <p>Pipeline overview and client metrics</p>
+        <!-- <p>Pipeline overview and client metrics</p> -->
       </div>
 
       <div class="stats-grid">
@@ -531,10 +582,34 @@
     </div>
     </div>
 
+    <div id="calDetailsOverlay" class="cal-det-overlay" onclick="if(event.target===this)closeCalDetailsOverlay()">
+      <div class="cal-det-card">
+        <div class="cd-header">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span class="cd-title" id="cdModalTitle">Date Overview</span>
+            <span class="cd-count-badge" id="cdModalCount">0 items</span>
+          </div>
+          <button class="cd-close" onclick="closeCalDetailsOverlay()">✕</button>
+        </div>
+        <div class="cd-body" id="cdModalBody">
+          </div>
+        <div class="cd-quick-create" id="cdQuickCreateArea">
+          </div>
+      </div>
+    </div>
+
   <script src="/public/js/app.js"></script>
   <script>
+    // Deterministic source classifier engine based on row parameter states
+    function getTaskOriginClass(t) {
+      if (t.invoice_id) return 'origin-doc';
+      if (t.title && (t.title.includes('Dispatch PO') || t.title.includes('Post-dispatch follow up'))) return 'origin-po';
+      if (t.contact_id || t.crm_contact_id) return 'origin-client';
+      return 'origin-manual';
+    }
+
     document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') closeTaskOverlay();
+        if (e.key === 'Escape') { closeTaskOverlay(); closeCalDetailsOverlay(); }
     });
 
     const INR = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -822,8 +897,8 @@
             ${DOW[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}${iso===todayISO?' · Today':''}
           </div>
           ${tasks.map(t => `
-            <div class="agenda-task ${t.due_date<todayISO?'overdue':''}" onclick="openTaskOverlay(${t.id})" style="cursor:pointer;">
-                <div class="a-poc">${esc(t.poc_name) || 'General'}</div>
+            <div class="agenda-task ${t.due_date<todayISO?'overdue':''} ${getTaskOriginClass(t)}" onclick="openTaskOverlay(${t.id})" style="cursor:pointer;">
+                <div class="a-poc">${esc(t.poc_name) || 'General Action'}</div>
                 <div class="a-title">${esc(t.title)}</div>
             </div>`).join('')}
         </div>`).join('')}</div>`;
@@ -871,7 +946,7 @@
         period.textContent = `${y}`;
         body.innerHTML = `<div class="cal-grid year">
           ${MONTHS.map((name,i) => `
-            <div class="cal-month-cell" onclick="jumpToMonth(${y},${i})">
+            <div class="cal-month-cell" onclick="openCalMonthOverlay(${y},${i}, event)">
               <div class="m-name">${name.slice(0,3)}</div>
               <div class="m-count">${counts[i]}</div>
               <div class="m-label">touchpoints</div>
@@ -886,13 +961,13 @@
         const today = iso === todayISO ? 'today' : '';
         const shown = tasks.slice(0, isWeek ? 5 : 3);
         const extra = tasks.length - shown.length;
-        return `<div class="cal-cell ${isWeek?'week':''} ${muted} ${today}">
+        return `<div class="cal-cell ${isWeek?'week':''} ${muted} ${today}" onclick="openCalDetailsOverlay('${iso}', event)" style="cursor:pointer;">
             <div class="cal-date">${d.getDate()}</div>
-            ${shown.map(t => `<div class="cal-task ${t.due_date<todayISO?'overdue':''}"
+            ${shown.map(t => `<div class="cal-task ${t.due_date<todayISO?'overdue':''} ${getTaskOriginClass(t)}"
             style="cursor:pointer;"
-            onclick="openTaskOverlay(${t.id})"
+            onclick="event.stopPropagation(); openTaskOverlay(${t.id})"
             title="${esc(t.poc_name)} — ${esc(t.title)}">${esc(t.poc_name) || esc(t.title)}</div>`).join('')}
-            ${extra>0?`<div class="cal-more">+${extra} more</div>`:''}
+            ${extra>0?`<div class="cal-more" style="font-weight:700;">+${extra} more</div>`:''}
         </div>`;
     }
 
@@ -926,92 +1001,82 @@
         try {
             const t = await api(`/api/tasks/${taskId}`);
             _ovTask = t;
-            // reset any invoice-mode mutations from a prior open
+            // Clear any stale buttons from previous view states
             document.querySelectorAll('.ov-inv-btn').forEach(b => b.remove());
-            document.getElementById('ovDoneBtn').onclick = overlayToggleDone;
-            document.getElementById('ovDoneBtn').style.display = '';
-            document.getElementById('ovViewLink').style.display = '';
-            document.getElementById('ovNoteSection').querySelector('.ov-section-label').textContent = 'Last Note';
+            document.getElementById('ovOverlayDeleteBtn')?.remove();
 
-            // Header
+            // Header state
             document.getElementById('ovStatusBadge').textContent = t.status === 'done' ? 'Done' : 'Open';
             document.getElementById('ovStatusBadge').className = `ov-status-badge ${t.status}`;
             document.getElementById('ovTitle').textContent = t.title;
             document.getElementById('ovTitle').contentEditable = t.status === 'done' ? 'false' : 'true';
 
-            // Meta
+            // Meta state
             document.getElementById('ovDueDate').value = t.due_date || '';
             document.getElementById('ovDueDate').disabled = t.status === 'done';
-            document.getElementById('ovTitle').contentEditable = t.status === 'done' ? 'false' : 'true';
             document.getElementById('overlaySaveArea').style.display = t.status === 'done' ? 'none' : '';
             document.getElementById('ovAssigned').innerHTML = _ovAvatarChip(t.assigned_to);
 
-            // Done button
+            // Action Buttons
             const doneBtn = document.getElementById('ovDoneBtn');
+            const viewLink = document.getElementById('ovViewLink');
+            const foot = document.querySelector('.ov-footer');
+
             if (t.status === 'done') {
                 doneBtn.textContent = 'Reopen';
                 doneBtn.className = 'ov-btn-done reopen';
+                doneBtn.onclick = overlayToggleDone;
             } else {
                 doneBtn.textContent = 'Mark Done';
                 doneBtn.className = 'ov-btn-done';
+                doneBtn.onclick = overlayToggleDone;
             }
 
-            // View contact link
-            const viewLink = document.getElementById('ovViewLink');
-            if (t.crm_contact_id) {
-                viewLink.href = `/clients?open=${t.crm_contact_id}`;
-                viewLink.style.display = '';
-            } else {
-                viewLink.style.display = 'none';
-            }
+            viewLink.style.display = t.crm_contact_id ? '' : 'none';
+            if (t.crm_contact_id) viewLink.href = `/clients?open=${t.crm_contact_id}`;
 
-            // Contact section
-            if (t.poc_name) {
-                document.getElementById('ovContactSection').style.display = '';
-                document.getElementById('ovContactName').textContent = t.poc_name;
-                document.getElementById('ovContactDesig').textContent = t.designation || '';
-                document.getElementById('ovContactCompany').textContent = t.company_name || '';
-                const links = [];
-                if (t.email) links.push(`<a href="mailto:${esc(t.email)}">✉ ${esc(t.email)}</a>`);
-                if (t.phone) links.push(`<a href="tel:${esc(t.phone)}">✆ ${esc(t.phone)}</a>`);
-                document.getElementById('ovContactLinks').innerHTML = links.join('');
-                const statusMap = { new:'New lead', contacted:'Contacted', qualified:'Qualified', customer:'Customer', lost:'Lost' };
-                document.getElementById('ovCrmStatus').textContent = statusMap[t.contact_status] || t.contact_status || '';
-            }
+            // Add the new Trash Button to the left of existing buttons
+            const trashBtn = document.createElement('button');
+            trashBtn.id = 'ovOverlayDeleteBtn';
+            trashBtn.className = 'trash-btn';
+            trashBtn.style.padding = '8px 12px';
+            trashBtn.style.flexShrink = '0';
+            trashBtn.title = 'Delete Task Permanently';
+            trashBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244 2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>`;
+            trashBtn.onclick = async () => {
+              if (!confirm('Permanently delete this task?')) return;
+              try {
+                await api(`/api/tasks/${t.id}`, { method: 'DELETE' });
+                showToast('Task removed');
+                closeTaskOverlay();
+                loadTasks();
+                renderCalendar();
+              } catch (err) { showToast('Failed to delete', 'error'); }
+            };
+            foot.insertBefore(trashBtn, foot.firstChild);
 
-            // ===== INVOICE TASK: render invoice details instead of contact/note/log =====
+            // Logic for Invoice task mode vs standard task
             if (t.invoice_id) {
-            await renderInvoiceOverlay(t);
-            return;
-            }
-
-            // Last note
-            document.getElementById('ovNoteSection').style.display = '';
-            if (t.last_note) {
-                document.getElementById('ovNoteContent').innerHTML = `
-                    <div class="ov-note-card">
-                    <div class="ov-note-body">${esc(t.last_note.body)}</div>
-                    <div class="ov-note-meta">${t.last_note.created_by ? esc(capitalize(t.last_note.created_by)) + ' · ' : ''}${fmtTaskDate((t.last_note.created_at || '').substring(0,10))}</div>
-                    </div>`;
+                await renderInvoiceOverlay(t);
             } else {
-                document.getElementById('ovNoteContent').innerHTML = `<div class="ov-no-note">No notes on this contact yet.</div>`;
+                document.getElementById('ovContactSection').style.display = t.poc_name ? '' : 'none';
+                if (t.poc_name) {
+                    document.getElementById('ovContactName').textContent = t.poc_name;
+                    document.getElementById('ovContactDesig').textContent = t.designation || '';
+                    document.getElementById('ovContactCompany').textContent = t.company_name || '';
+                    document.getElementById('ovContactLinks').innerHTML = [
+                        t.email ? `<a href="mailto:${esc(t.email)}">✉ ${esc(t.email)}</a>` : '',
+                        t.phone ? `<a href="tel:${esc(t.phone)}">✆ ${esc(t.phone)}</a>` : ''
+                    ].filter(Boolean).join('');
+                }
+                document.getElementById('ovNoteSection').style.display = '';
+                document.getElementById('ovNoteContent').innerHTML = t.last_note ? `
+                    <div class="ov-note-card"><div class="ov-note-body">${esc(t.last_note.body)}</div>
+                    <div class="ov-note-meta">${t.last_note.created_by ? esc(capitalize(t.last_note.created_by)) + ' · ' : ''}${fmtTaskDate((t.last_note.created_at || '').substring(0,10))}</div></div>` 
+                    : '<div class="ov-no-note">No notes on this contact yet.</div>';
+                document.getElementById('ovLogSection').style.display = (t.contact_id && t.status === 'open') ? '' : 'none';
+                document.getElementById('ovLogBtn').style.display = (t.contact_id && t.status === 'open') ? '' : 'none';
             }
-
-            // Log call section — only when task is open and linked to a contact
-            const logSection = document.getElementById('ovLogSection');
-            const logBtn = document.getElementById('ovLogBtn');
-            if (t.contact_id && t.status === 'open') {
-                logSection.style.display = '';
-                logBtn.style.display = '';
-                document.getElementById('ovCallNote').value = '';
-                document.getElementById('ovNextDate').value = '';
-                document.getElementById('ovNextTitle').value = '';
-                document.getElementById('ovMarkDone').checked = true;
-            } else {
-                logSection.style.display = 'none';
-                logBtn.style.display = 'none';
-            }
-
         } catch(e) {
             document.getElementById('ovTitle').textContent = 'Failed to load task';
         }
@@ -1171,6 +1236,143 @@
     loadDashboardKPIs();
     initTaskScope();
     renderCalendar();
+
+    // ===== Calendar Detail Overlay Core Lifecycle Managers =====
+    let _activeCalIso = null;
+
+    function closeCalDetailsOverlay() {
+      document.getElementById('calDetailsOverlay').classList.remove('open');
+      _activeCalIso = null;
+    }
+
+    async function openCalDetailsOverlay(iso, event) {
+      if (event && event.target.closest('.cal-task')) return;
+      
+      _activeCalIso = iso;
+      const overlay = document.getElementById('calDetailsOverlay');
+      overlay.classList.add('open');
+      
+      document.getElementById('cdModalTitle').textContent = fmtTaskDate(iso);
+      document.getElementById('cdModalBody').innerHTML = '<div class="cd-empty">Loading touchpoints…</div>';
+      
+      try {
+        const tasks = await fetchTasks(iso, iso);
+        document.getElementById('cdModalCount').textContent = `${tasks.length} item${tasks.length !== 1 ? 's' : ''}`;
+        
+        if (!tasks.length) {
+          document.getElementById('cdModalBody').innerHTML = '<div class="cd-empty">No entries scheduled for this date.</div>';
+        } else {
+          document.getElementById('cdModalBody').innerHTML = tasks.map(t => {
+            const cls = getTaskOriginClass(t);
+            return `
+            <div class="cd-item ${cls}" onclick="closeCalDetailsOverlay(); openTaskOverlay(${t.id})">
+              <div class="cd-item-row">
+                <div style="min-width:0; flex:1;">
+                  <div class="cd-item-poc">${esc(t.poc_name) || 'General Action'} ${t.company_name ? `<span style="font-weight:500; font-size:11px; color:var(--text-muted);">(${esc(t.company_name)})</span>` : ''}</div>
+                  <div class="cd-item-title">${esc(t.title)}</div>
+                </div>
+                <button class="cd-trash-btn" title="Delete Task" onclick="event.stopPropagation(); deleteCalDetailsTask(${t.id})">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244 2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
+                  </svg>
+                </button>
+              </div>
+            </div>`;
+          }).join('');
+        }
+        
+        const createArea = document.getElementById('cdQuickCreateArea');
+        createArea.style.display = 'flex';
+        createArea.innerHTML = `
+          <input type="text" id="cdQuickInput" class="cd-input" placeholder="Quick add action + hit Enter…">
+          <button class="cd-btn" onclick="submitQuickTask()">+ Add</button>
+        `;
+        
+        document.getElementById('cdQuickInput').addEventListener('keydown', e => {
+          if (e.key === 'Enter') submitQuickTask();
+        });
+      } catch (e) {
+        document.getElementById('cdModalBody').innerHTML = '<div class="cd-empty">Failed to query date details.</div>';
+      }
+    }
+
+    // Direct standalone quick-deletion handler for the calendar popover modal view
+    async function deleteCalDetailsTask(taskId) {
+      if (!confirm('Are you sure you want to permanently delete this task reminder?')) return;
+      try {
+        // Targets your standard backend router DELETE hook safely
+        await api(`/api/tasks/${taskId}`, { method: 'DELETE' });
+        showToast('Task removed permanently');
+        
+        // Refresh views instantly across your layout trees
+        if (_activeCalIso) {
+          openCalDetailsOverlay(_activeCalIso);
+        } else {
+          closeCalDetailsOverlay();
+        }
+        loadTasks();
+        renderCalendar();
+      } catch(err) {
+        showToast('Failed to delete task item', 'error');
+      }
+    }
+
+    async function submitQuickTask() {
+      const input = document.getElementById('cdQuickInput');
+      const title = input.value.trim();
+      if (!title) return;
+      
+      try {
+        await api('/api/tasks', {
+          method: 'POST',
+          body: { title: title, due_date: _activeCalIso, contact_id: null }
+        });
+        showToast('Task generated smoothly');
+        openCalDetailsOverlay(_activeCalIso); // Re-trigger live popover content view updates instantly
+        loadTasks();
+        renderCalendar();
+      } catch(err) {
+        showToast('Failed to log entry', 'error');
+      }
+    }
+
+    async function openCalMonthOverlay(year, monthIndex, event) {
+      const startIso = `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`;
+      const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+      const endIso = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      
+      const overlay = document.getElementById('calDetailsOverlay');
+      overlay.classList.add('open');
+      
+      document.getElementById('cdModalTitle').textContent = `${MONTHS[monthIndex]} ${year}`;
+      document.getElementById('cdModalBody').innerHTML = '<div class="cd-empty">Parsing monthly matrix…</div>';
+      
+      const createArea = document.getElementById('cdQuickCreateArea');
+      createArea.style.display = 'block';
+      createArea.innerHTML = `<button class="cd-jump-btn" onclick="closeCalDetailsOverlay(); jumpToMonth(${year}, ${monthIndex})">Open Full Month Grid view →</button>`;
+
+      try {
+        const tasks = await fetchTasks(startIso, endIso);
+        document.getElementById('cdModalCount').textContent = `${tasks.length} total item${tasks.length !== 1 ? 's' : ''}`;
+        
+        if (!tasks.length) {
+          document.getElementById('cdModalBody').innerHTML = '<div class="cd-empty">No agenda logs across this period sequence.</div>';
+        } else {
+          tasks.sort((a, b) => a.due_date.localeCompare(b.due_date));
+          document.getElementById('cdModalBody').innerHTML = tasks.map(t => `
+            <div class="cd-item ${getTaskOriginClass(t)}" onclick="closeCalDetailsOverlay(); openTaskOverlay(${t.id})">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2px;">
+                <span class="cd-item-poc">${esc(t.poc_name) || 'General Task'}</span>
+                <span style="font-size:10px; font-weight:700; color:var(--primary); font-family:var(--font);">${fmtTaskDate(t.due_date).substring(0,6)}</span>
+              </div>
+              <div class="cd-item-title">${esc(t.title)}</div>
+            </div>
+          `).join('');
+        }
+      } catch(e) {
+        document.getElementById('cdModalBody').innerHTML = '<div class="cd-empty">Failed to assemble data aggregates.</div>';
+      }
+    }
   </script>
   <nav class="bottom-nav">
     <a href="/" class="active">

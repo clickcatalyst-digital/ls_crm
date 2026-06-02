@@ -498,8 +498,13 @@ router.delete('/:id', async (req, res) => {
   }
 
   try {
-    const po = await queryOne('SELECT id FROM crm_purchase_orders WHERE id = ?', [req.params.id]);
+    const po = await queryOne('SELECT id, po_number FROM crm_purchase_orders WHERE id = ?', [req.params.id]);
     if (!po) return res.status(404).json({ error: 'PO not found' });
+
+    // Cascade task cleanup using the structural PO identifier string to prevent orphaned calendar items
+    if (po.po_number) {
+      await execute("DELETE FROM crm_tasks WHERE title LIKE ? AND status = 'open'", [`%PO ${po.po_number}%`]);
+    }
 
     // 1. Clear lines first to satisfy foreign key constraints safely
     await execute('DELETE FROM crm_po_items WHERE po_id = ?', [req.params.id]);

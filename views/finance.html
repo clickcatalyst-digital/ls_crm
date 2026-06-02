@@ -13,10 +13,11 @@
     .tab-pane { display: none; }
     .tab-pane.active { display: block; }
     /* ── Underline-style secondary nav ── */
-    .fin-nav { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+    .fin-nav { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .fin-nav::-webkit-scrollbar { display: none; }
     .fin-nav-btn { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
       font-family: var(--font); font-size: 12px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.5px; color: var(--text-muted); padding: 10px 16px; cursor: pointer; transition: all 0.15s; }
+      letter-spacing: 0.5px; color: var(--text-muted); padding: 10px 16px; cursor: pointer; transition: all 0.15s; white-space: nowrap; flex-shrink: 0; }
     .fin-nav-btn:hover { color: var(--text); }
     .fin-nav-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
     /* ── Aging bars ── */
@@ -40,8 +41,9 @@
     /* ── .card-title supports info icon via flex ── */
     .card-title { display:flex !important; justify-content:space-between; align-items:center; }
     /* ── Sales period filter ── */
-    .fin-period-bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
-    .fin-period-btn { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-muted); font-family:var(--font); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; padding:6px 14px; cursor:pointer; transition:all 0.15s; }
+    .fin-period-bar { display:flex; gap:6px; margin-bottom:12px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-bottom:2px; }
+    .fin-period-bar::-webkit-scrollbar { display:none; }
+    .fin-period-btn { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-muted); font-family:var(--font); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; padding:6px 14px; cursor:pointer; transition:all 0.15s; white-space:nowrap; flex-shrink:0; }
     .fin-period-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
     .fin-custom-range { display:none; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center; }
     .fin-custom-range.open { display:flex; }
@@ -86,6 +88,39 @@
     .vp-table th:not(:first-child) { text-align: right; }
     .vp-table td { padding: 8px; border-bottom: 1px solid var(--border); }
     .vp-table td:not(:first-child) { text-align: right; }
+
+    /* ── Mobile ─────────────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+    /* Grid layouts → single column */
+    .analytics-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
+    #pnlKpis        { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+
+    /* KPI stat boxes → 2×2 */
+    .stats-grid     { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+    .stat-box       { padding: 12px !important; }
+    .stat-value     { font-size: 17px !important; }
+
+    /* Typography */
+    .page-header h1  { font-size: 20px; }
+    .card-title      { font-size: 11px !important; }
+    .fin-bal-amt     { font-size: 13px !important; }
+    #cb-total        { font-size: 20px !important; }
+    #pay-total       { font-size: 20px !important; }
+
+    /* Tables — horizontal scroll inside cards */
+    .card table      { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+    .vp-table        { font-size: 11px; }
+
+    /* Transaction history period buttons (mixed row with select) */
+    [data-txnperiod] { white-space: nowrap; flex-shrink: 0; }
+
+    /* Custom date inputs fill row */
+    .fin-custom-range { gap: 4px; }
+    .fin-custom-range input[type=date] { flex: 1; min-width: 0; }
+
+    /* Inventory search fills width */
+    #invSearch { max-width: 100% !important; flex: 1; min-width: 0; }
+    }
   </style>
 </head>
 <body>
@@ -206,8 +241,8 @@
     <!-- ═══════════ INVENTORY ═══════════ -->
     <div class="tab-pane" id="pane-inventory">
       <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
-        <input type="search" class="form-control" id="invSearch" placeholder="Search item name or group…" style="max-width:260px" oninput="filterInventory()">
-        <select class="form-control" id="invGroupFilter" style="width:auto;max-width:200px" onchange="filterInventory()">
+        <input type="search" class="form-control" id="invSearch" placeholder="Search item name or group…" style="max-width:260px;flex:1;min-width:120px" oninput="filterInventory()">
+        <select class="form-control" id="invGroupFilter" style="width:auto;max-width:200px;min-width:100px;flex-shrink:0" onchange="filterInventory()">
           <option value="">All groups</option>
         </select>
       </div>
@@ -269,12 +304,12 @@
       <!-- Transaction History -->
       <div class="card">
         <div class="card-title">Transaction History <span class="fin-i" tabindex="0" data-tip="Bank receipts and payments from Tally. Use to verify whether a specific customer has paid, or to review all outgoing payments this month. Net flow = receipts minus payments.">i</span></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+        <div style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:12px;align-items:center;padding-bottom:2px">
           <button class="fin-period-btn active" data-txnperiod="month"     onclick="setTxnPeriod('month')">This Month</button>
           <button class="fin-period-btn"        data-txnperiod="lastmonth" onclick="setTxnPeriod('lastmonth')">Last Month</button>
           <button class="fin-period-btn"        data-txnperiod="fy"        onclick="setTxnPeriod('fy')">This FY</button>
           <button class="fin-period-btn"        data-txnperiod="all"       onclick="setTxnPeriod('all')">All Time</button>
-          <select id="txnType" onchange="loadTransactions()" style="font-family:var(--font);font-size:11px;font-weight:700;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text-muted);cursor:pointer">
+          <select id="txnType" onchange="loadTransactions()" style="font-family:var(--font);font-size:11px;font-weight:700;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text-muted);cursor:pointer;flex-shrink:0">
             <option value="all">All types</option>
             <option value="Receipt">Receipts only</option>
             <option value="Payment">Payments only</option>
@@ -315,7 +350,7 @@
       <!-- Purchase Register -->
       <div class="card">
         <div class="card-title">Purchase Register <span class="fin-i" tabindex="0" data-tip="All purchase vouchers from Tally for the selected period. Answers: What did we buy? From whom? At what cost? Use to reconcile with payables balances — new purchases this period vs existing debt.">i</span></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <div style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:12px;padding-bottom:2px">
           <button class="fin-period-btn active" data-purperiod="month"     onclick="setPurPeriod('month')">This Month</button>
           <button class="fin-period-btn"        data-purperiod="lastmonth" onclick="setPurPeriod('lastmonth')">Last Month</button>
           <button class="fin-period-btn"        data-purperiod="fy"        onclick="setPurPeriod('fy')">This FY</button>

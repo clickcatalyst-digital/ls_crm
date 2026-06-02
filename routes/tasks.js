@@ -155,4 +155,15 @@ router.patch('/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// DELETE PERMANENTLY — Permanent task-purging router hook
+router.delete('/:id', async (req, res) => {
+  try {
+    const r = await execute('DELETE FROM crm_tasks WHERE id = ?', [req.params.id]);
+    if (!r.changes) return res.status(404).json({ error: 'Task already deleted or not found' });
+    res.json({ success: true, message: 'Task permanently removed from ledger tracking metrics' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
