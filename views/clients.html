@@ -211,6 +211,15 @@
     .note-entry .note-meta { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
     .note-entry .note-body { font-size: 13px; margin-top: 3px; white-space: pre-wrap; }
     [data-theme="dark"] .detail-panel { box-shadow: -8px 0 24px rgba(0,0,0,0.4); }
+    /* Trash icon actions style matrix alignment */
+    .trash-btn {
+      background: none; border: none; color: var(--text-muted); cursor: pointer;
+      padding: 4px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .trash-btn:hover {
+      color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent);
+    }
   </style>
 </head>
 <body>
@@ -274,6 +283,7 @@
         <div class="ct-left">
           <button class="btn btn-primary btn-sm" onclick="openAdd()">+ Add</button>
           <button class="select-all-btn" id="selectAllBtn" onclick="bulkSelectAll()" style="display:none;">Select all</button>
+          <button class="btn btn-danger btn-sm" id="bulkDeleteBtn" onclick="bulkDelete()" style="display:none; margin-left:8px;">Delete Selected</button>
         </div>
         <div class="search-wrap">
           <span class="search-ico">
@@ -392,11 +402,25 @@
       pageSize: 10,
       titleText: 'All Clients',
       columns: [
+        { 
+          label: '', 
+          render: c => `<input type="checkbox" class="bulk-cb" value="${c.id}" data-name="${esc(c.poc_name)}" onclick="event.stopPropagation();onBulkToggle()" style="cursor:pointer;width:14px;height:14px;">` 
+        },
         { label: 'POC', render: c => `<strong style="cursor:pointer;color:var(--primary);" onclick="openClient(${c.id})">${esc(c.poc_name)}</strong>` },
         { label: 'Company', render: c => esc(c.company_name) || '—' },
         { label: 'Designation', render: c => esc(c.designation) || '—' },
         { label: 'Product', render: c => esc(c.product_name) || '—' },
         { label: 'Status', render: c => `<span class="badge ${STATUS_BADGE[c.status]||'badge-warning'}">${esc(c.status)}</span>` },
+        {
+          label: '',
+          render: c => `
+            <button class="trash-btn" title="Delete Client" onclick="event.stopPropagation();rowDelete(${c.id}, '${esc(c.poc_name)}')">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244 2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
+              </svg>
+            </button>
+          `
+        }
       ]
     });
 
@@ -511,13 +535,43 @@
       return true;
     }
 
-    // "Select all" placeholder — appears when there's a meaningful number of rows.
-    // (Bulk actions for clients can be wired here later.)
+    function getBulkBoxes() {
+      return Array.from(document.querySelectorAll('.bulk-cb'));
+    }
+
+    function onBulkToggle() {
+      const boxes = getBulkBoxes();
+      const checked = boxes.filter(cb => cb.checked);
+      
+      // Toggle bulk action visibility status layers
+      const bulkBtn = document.getElementById('bulkDeleteBtn');
+      if (bulkBtn) bulkBtn.style.display = checked.length > 0 ? 'inline-flex' : 'none';
+      
+      const selectAllBtn = document.getElementById('selectAllBtn');
+      if (selectAllBtn) {
+        const allChecked = boxes.length > 0 && checked.length === boxes.length;
+        selectAllBtn.textContent = allChecked ? 'Clear Selection' : 'Select All';
+      }
+    }
+
+    function bulkSelectAll() {
+      const boxes = getBulkBoxes();
+      const checked = boxes.filter(cb => cb.checked);
+      const targetState = checked.length < boxes.length;
+      boxes.forEach(cb => cb.checked = targetState);
+      onBulkToggle();
+    }
+
     function updateSelectAll(rows) {
       const btn = document.getElementById('selectAllBtn');
-      if (btn) btn.style.display = rows.length > 2 ? 'inline-flex' : 'none';
+      if (btn) {
+        btn.style.display = rows.length > 0 ? 'inline-flex' : 'none';
+        btn.textContent = 'Select All';
+      }
+      if (document.getElementById('bulkDeleteBtn')) {
+        document.getElementById('bulkDeleteBtn').style.display = 'none';
+      }
     }
-    function bulkSelectAll() { /* reserved for future bulk client actions */ }
 
     // ===== Add overlay =====
     function openAdd() {
@@ -682,6 +736,41 @@
       const openId = new URLSearchParams(window.location.search).get('open');
       if (openId) openClient(parseInt(openId));
     });
+
+    // Single contact client removal handler loop
+    async function rowDelete(id, name) {
+      if (!confirm(`Are you sure you want to permanently delete client "${name}" along with all their note history and active touchpoints?`)) return;
+      try {
+        await api(`/api/clients/${id}`, { method: 'DELETE' });
+        showToast('Client removed successfully');
+        loadClients();
+        loadMetrics();
+      } catch (e) {
+        showToast('Failed to drop client record', 'error');
+      }
+    }
+
+    // Bulk checklist evaluation deletion workflow loop
+    async function bulkDelete() {
+      const checked = getBulkBoxes().filter(cb => cb.checked);
+      if (!checked.length) return;
+      if (!confirm(`Permanently wipe out the ${checked.length} selected client profile(s) along with their active historical workflows?`)) return;
+
+      let deleted = 0, failed = 0;
+      for (const cb of checked) {
+        try {
+          await api(`/api/clients/${cb.value}`, { method: 'DELETE' });
+          deleted++;
+        } catch (e) { failed++; }
+      }
+      
+      showToast(`${deleted} client(s) purged${failed ? `, ${failed} failed` : ''}`, failed ? 'error' : 'success');
+      if (document.getElementById('bulkDeleteBtn')) {
+        document.getElementById('bulkDeleteBtn').style.display = 'none';
+      }
+      loadClients();
+      loadMetrics();
+    }
   </script>
 
   <nav class="bottom-nav">

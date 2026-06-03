@@ -118,4 +118,25 @@ router.get('/meta/metrics', async (req, res) => {
   });
 });
 
+// DELETE PERMANENTLY — Robust cascade cleanup for client profiles, notes, and tasks
+router.delete('/:id', async (req, res) => {
+  try {
+    const contact = await queryOne('SELECT id FROM crm_contacts WHERE id = ?', [req.params.id]);
+    if (!contact) return res.status(404).json({ error: 'Client profile not found' });
+
+    // 1. Clear linked note interaction history
+    await execute('DELETE FROM crm_notes WHERE contact_id = ?', [req.params.id]);
+
+    // 2. Clear open timeline tasks associated with this client
+    await execute('DELETE FROM crm_tasks WHERE contact_id = ?', [req.params.id]);
+
+    // 3. Clear core client contact profile record
+    await execute('DELETE FROM crm_contacts WHERE id = ?', [req.params.id]);
+
+    res.json({ success: true, message: 'Client records completely removed' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
