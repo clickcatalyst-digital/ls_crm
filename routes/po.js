@@ -58,15 +58,15 @@ function matchItem(description, items, normIndex) {
 // Used by both the HTTP create route and the extraction import path.
 // `lines` are already-resolved { item_code, quantity_ordered, unit_price, notes }.
 async function insertPO({ po_number, po_source, company_id, contact_id, order_date,
-                          expected_dispatch_date, notes, created_by, lines }) {
+                          expected_dispatch_date, notes, created_by, file_url, lines }) {
   const r = await execute(
     `INSERT INTO crm_purchase_orders
        (po_number, po_source, company_id, contact_id, order_date,
-        expected_dispatch_date, notes, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        expected_dispatch_date, notes, created_by, file_url, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )`,
     [po_number, po_source, company_id, contact_id || null,
      order_date || null, expected_dispatch_date || null,
-     notes || null, created_by, nowIST(), nowIST()]
+     notes || null, created_by, file_url || null, nowIST(), nowIST()]
   );
   const poId = Number(r.lastId);
   if (Array.isArray(lines)) {
@@ -90,7 +90,7 @@ async function insertPO({ po_number, po_source, company_id, contact_id, order_da
 // description in `notes` with item_code = null so the panel can flag them.
 // Resolves party_name → company_id where an exact company name match exists;
 // otherwise stashes the supplier name in the PO notes for the reviewer.
-async function createPOFromExtraction(inv, createdBy) {
+async function createPOFromExtraction(inv, createdBy, file_url = null) {
   const po_number = (inv.invoice_no && inv.invoice_no.trim())
     ? inv.invoice_no.trim()
     : await nextSysPONumber();
@@ -165,6 +165,7 @@ async function createPOFromExtraction(inv, createdBy) {
     expected_dispatch_date: inv.delivery_date || null,
     notes: noteParts.join(' · ') || null,
     created_by: createdBy,
+    file_url,
     lines,
   });
   return { id: poId, po_number, company_id, unmatched: unmatchedCount };

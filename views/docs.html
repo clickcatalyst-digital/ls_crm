@@ -209,7 +209,8 @@
     .rv-overlay.open { opacity: 1; pointer-events: all; }
     .rv-panel {
       background: var(--surface); border-left: 1px solid var(--border);
-      width: 460px; max-width: 100vw; height: 100vh; display: flex; flex-direction: column;
+      width: 560px; /* Expanded further to give complex text forms immediate breathing room */
+      max-width: 100vw; height: 100vh; display: flex; flex-direction: column;
       transform: translateX(30px); transition: transform 0.2s; overflow: hidden;
     }
     .rv-overlay.open .rv-panel { transform: translateX(0); }
@@ -234,6 +235,21 @@
     }
     .rv-field input:focus, .rv-field select:focus, .rv-field textarea:focus { outline: none; border-color: var(--primary); }
     .rv-field input:disabled, .rv-field select:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* Premium Custom Select Option Overrides */
+    .rv-panel select {
+      appearance: none; -webkit-appearance: none; -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999999' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px !important;
+      cursor: pointer;
+    }
+    /* Forces native dropdown choices to match the dark workspace background when expanded */
+    .rv-panel select option {
+      background: var(--surface) !important;
+      color: var(--text) !important;
+    }
 
     .rv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
     .rv-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
@@ -277,12 +293,21 @@
     .po-source-tag { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-muted); margin-left: 6px; }
 
     .po-item-row {
-      display: grid; grid-template-columns: 1fr 64px 84px 26px; gap: 6px; align-items: center; margin-bottom: 6px;
+      /* Re-allocated tracking widths to maximize horizontal input utility */
+      display: grid; grid-template-columns: 1fr 74px 94px 26px; gap: 8px; align-items: center; margin-bottom: 6px;
     }
     .po-item-row.head { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 2px; }
     .po-item-row select, .po-item-row input {
       font-family: var(--font); font-size: 12px; background: var(--bg); border: 1px solid var(--border);
       border-radius: var(--radius); color: var(--text); padding: 6px 8px; width: 100%; box-sizing: border-box;
+    }
+    .po-item-row select, .po-existing-item select {
+      appearance: none; -webkit-appearance: none; -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23999999' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 26px !important;
+      cursor: pointer;
     }
     .po-item-row .x { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
     .po-item-row .x:hover { color: var(--danger); }
@@ -547,7 +572,7 @@
     .left-doc-viewer {
       position: fixed; 
       top: 52px; 
-      left: 0; 
+      left: 0;
       height: calc(100vh - 52px);
       background: var(--bg); /* Set to standard app bg so underlying tables don't bleed through text */
       border-right: 1px solid var(--border); 
@@ -563,13 +588,13 @@
 
     /* 1. LARGE DESKTOP SCREENS (> 1440px width) — Maximum layout spacing */
     @media (min-width: 1441px) {
-      .left-doc-viewer { width: calc(100vw - 520px); }
-      #reviewPanel.rv-wide-layout ~ .left-doc-viewer { width: calc(100vw - 920px); }
+      .left-doc-viewer { width: calc(100vw - 600px); } /* Adjusted to clear the new 540px sidebar width */
+      #reviewPanel.rv-wide-layout ~ .left-doc-viewer { width: calc(100vw - 920px); } /* Remains unchanged as wide layout is still 880px */
     }
 
     /* 2. MID-SIZE LAPTOPS (1024px to 1440px width) — Fluid Percentage Splits */
     @media (max-width: 1440px) and (min-width: 1024px) {
-      .left-doc-viewer { width: 50vw; }
+      .left-doc-viewer { width: calc(100vw - 580px); } /* Dynamically claims remaining screen space left by the 540px sidebar */
       
       /* For heavy bank statements, allocate 42% width to the PDF and 55% width to the Data Grid */
       #reviewPanel.rv-wide-layout .rv-panel {
@@ -1979,8 +2004,26 @@
       document.getElementById('rvBody').innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Loading…</div>';
       document.getElementById('rvFoot').innerHTML = '';
       try {
+        // Safe lazy-loading guard to populate item selections if accessed straight from main data stream tables
+        if (!_poItems || !_poItems.length) {
+          try { _poItems = await api('/api/po/items'); } catch (itemErr) { _poItems = []; }
+        }
+
         const po = await api(`/api/po/${id}`);
         _po = po; _poEditable = ['draft','confirmed'].includes(po.status);
+
+        // Bind the cloud file link to your mobile shortcut and left floating reader
+        const mobLink = document.getElementById('mobilePdfLink');
+        if (po && po.file_url) {
+          mobLink.href = po.file_url;
+          mobLink.style.display = 'inline-block';
+          syncLeftDocumentViewer(po.file_url);
+        } else {
+          mobLink.href = '#';
+          mobLink.style.display = 'none';
+          syncLeftDocumentViewer(null);
+        }
+
         document.getElementById('rvDocNo').innerHTML = esc(po.po_number) + (po.po_source==='system'?' <span class="po-source-tag">SYS</span>':'');
         const st = document.getElementById('rvStatus'); st.textContent = po.status;
         st.className = 'rv-status ' + (po.status==='draft'?'pending':po.status==='confirmed'?'pushed':po.status==='dispatched'?'approved':'rejected');
@@ -2031,35 +2074,51 @@
       }
     }
 
-    // Renders one PO line. Matched lines (have item_code) show as before.
-    // Unmatched imported lines (item_code null) show their source description
-    // from `notes` plus an inline item picker to resolve them.
+    // Renders one PO line using a defensive vertical stack to prevent text/dropdown overlaps completely
     function poItemRow(poId, i) {
-      const qtyPrice = `×${i.quantity_ordered}${i.unit_price ? ' · ₹' + i.unit_price : ''}`;
+      const qtyPrice = `× ${i.quantity_ordered} ${i.unit_price ? '·  ₹' + i.unit_price : ''}`;
       const removeBtn = _poEditable
-        ? `<button class="x" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;" onclick="poRemoveItem(${poId},${i.id})">✕</button>`
+        ? `<button class="x" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:4px;display:inline-flex;align-items:center;" onclick="poRemoveItem(${poId},${i.id})">✕</button>`
         : '';
+
       if (i.item_code) {
-        return `<div class="po-existing-item">
-          <div><div class="code">${esc(i.item_code)}</div><div class="desc">${esc(i.description)||'—'}</div></div>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span style="font-size:13px;font-weight:700;">${qtyPrice}</span>
-            ${removeBtn}
+        // Clean Stacked Card for Matched Items
+        return `
+          <div class="po-existing-item" style="display: flex; flex-direction: column; gap: 8px; padding: 12px; align-items: stretch; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+              <div style="min-width: 0;">
+                <div class="code" style="color: var(--primary); font-size: 12px; font-weight: 700;">${esc(i.item_code)}</div>
+                <div class="desc" style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; word-break: break-word;">${esc(i.description || '—')}</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+                <span style="font-size: 12px; font-weight: 700; white-space: nowrap; color: var(--text);">${qtyPrice}</span>
+                ${removeBtn}
+              </div>
+            </div>
+          </div>`;
+      }
+
+      // Secure Stacked Card for Unmatched Items (Isolates Text on Top, Controls on Bottom)
+      const picker = _poEditable
+        ? `<select onchange="poAssignItem(${poId},${i.id},this.value)" style="font-family: var(--font); font-size: 12px; background: var(--surface); border: 1px solid var(--warning); border-radius: var(--radius); color: var(--text); padding: 7px 28px 7px 10px; width: 100%; box-sizing: border-box;">${poItemOptions('')}</select>`
+        : '';
+
+      return `
+        <div class="po-existing-item" style="border: 1px solid var(--warning); border-radius: var(--radius); display: flex; flex-direction: column; gap: 10px; padding: 12px; align-items: stretch; background: color-mix(in srgb, var(--warning) 3%, var(--surface)); margin-bottom: 8px;">
+          <div style="min-width: 0;">
+            <div class="code" style="color: var(--warning); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Needs Item Assignment</div>
+            <div class="desc" style="font-size: 11px; color: var(--text); margin-top: 4px; line-height: 1.4; word-break: break-word; font-weight: 500;">${esc(i.notes || i.description || '—')}</div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; border-top: 1px dashed color-mix(in srgb, var(--warning) 20%, var(--border)); padding-top: 8px;">
+            <div style="position: relative; width: 100%;">
+              ${picker}
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+              <span style="font-size: 12px; font-weight: 700; white-space: nowrap; color: var(--text);">${qtyPrice}</span>
+              ${removeBtn}
+            </div>
           </div>
         </div>`;
-      }
-      // Unmatched line — description lives in notes; offer an assign picker.
-      const picker = _poEditable
-        ? `<select onchange="poAssignItem(${poId},${i.id},this.value)" style="font-family:var(--font);font-size:12px;background:var(--surface);border:1px solid var(--warning);border-radius:var(--radius);color:var(--text);padding:6px 8px;max-width:180px;">${poItemOptions('')}</select>`
-        : '';
-      return `<div class="po-existing-item" style="border-color:var(--warning);">
-        <div style="min-width:0;"><div class="code" style="color:var(--warning);">Needs item</div><div class="desc">${esc(i.notes)||esc(i.description)||'—'}</div></div>
-        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
-          ${picker}
-          <span style="font-size:13px;font-weight:700;white-space:nowrap;">${qtyPrice}</span>
-          ${removeBtn}
-        </div>
-      </div>`;
     }
 
     async function poAssignItem(poId, itemId, itemCode) {

@@ -345,9 +345,9 @@ async function runExtraction(invoiceId, buffer, hint, chatId = null) {
     }
 
     if ((hint === 'purchase_order' || inv.doc_type === 'purchase_order')) {
-      const placeholder = await queryOne('SELECT uploaded_by, task_id FROM crm_invoices WHERE id=?', [invoiceId]);
+      const placeholder = await queryOne('SELECT uploaded_by, task_id, file_url FROM crm_invoices WHERE id=?', [invoiceId]);
       try {
-        const po = await createPOFromExtraction(inv, placeholder?.uploaded_by || 'system');
+        const po = await createPOFromExtraction(inv, placeholder?.uploaded_by || 'system', placeholder?.file_url || null);
         if (placeholder?.task_id) {
           await execute("UPDATE crm_tasks SET status='done', completed_at=?, title=? WHERE id=?",
             [nowIST(), `PO ${po.po_number} imported — review`, placeholder.task_id]);
