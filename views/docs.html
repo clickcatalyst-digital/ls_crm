@@ -484,7 +484,7 @@
     /* ===== Balanced Alignment for the Document Toolbar ===== */
     .docs-toolbar {
       display: grid !important;
-      grid-template-columns: 1fr auto 1fr;
+      grid-template-columns: 1fr minmax(160px, 380px) 1fr;
       align-items: center;
       gap: 16px;
       margin-bottom: 16px;
@@ -621,7 +621,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
             </svg>
           </span>
-          <input class="search-input" id="searchInput" placeholder="Search..." oninput="onSearch(this.value)">
+          <input class="search-input" id="searchInput" placeholder="Search…" oninput="onSearch(this.value)">
         </div>
         <button class="filter-toggle" id="filterToggle" onclick="toggleFilterPanel()">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">

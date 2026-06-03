@@ -15,7 +15,7 @@
     /* ── Underline-style secondary nav ── */
     .fin-nav { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .fin-nav::-webkit-scrollbar { display: none; }
-    .fin-nav-btn { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
+    .fin-nav-btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
       font-family: var(--font); font-size: 12px; font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.5px; color: var(--text-muted); padding: 10px 16px; cursor: pointer; transition: all 0.15s; white-space: nowrap; flex-shrink: 0; }
     .fin-nav-btn:hover { color: var(--text); }
@@ -120,14 +120,15 @@
 
     /* Inventory search fills width */
     #invSearch { max-width: 100% !important; flex: 1; min-width: 0; }
-    }
-    .fin-tab-icon  { display: none; }
-    .fin-tab-short { display: none; }
 
-    .fin-nav-btn { flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 8px 4px 6px; white-space: normal; }
-    .fin-tab-icon  { display: block; }
+    /* Tab bar — icon + short label stacked, equal width */
+    .fin-nav-btn   { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 8px 4px 6px; white-space: normal; }
+    .fin-tab-icon  { display: block; width: 16px; height: 16px; }
     .fin-tab-short { display: block; font-size: 9px; letter-spacing: 0.3px; }
     .fin-tab-full  { display: none; }
+    }
+    .fin-tab-icon  { width: 14px; height: 14px; flex-shrink: 0; }
+    .fin-tab-short { display: none; }
   </style>
 </head>
 <body>

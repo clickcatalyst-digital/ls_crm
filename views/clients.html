@@ -211,7 +211,7 @@
     .note-entry .note-meta { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
     .note-entry .note-body { font-size: 13px; margin-top: 3px; white-space: pre-wrap; }
     [data-theme="dark"] .detail-panel { box-shadow: -8px 0 24px rgba(0,0,0,0.4); }
-    /* Trash icon actions style matrix alignment */
+    /* ===== Unified Premium Actions and Custom Checkbox Matrix ===== */
     .trash-btn {
       background: none; border: none; color: var(--text-muted); cursor: pointer;
       padding: 4px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center;
@@ -219,6 +219,25 @@
     }
     .trash-btn:hover {
       color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent);
+    }
+
+    /* Exact checkbox design layout ported from docs.html */
+    .bulk-cb {
+      appearance: none; -webkit-appearance: none;
+      width: 16px; height: 16px; flex-shrink: 0;
+      border: 1.5px solid var(--border); border-radius: 4px;
+      background: var(--bg); cursor: pointer; position: relative;
+      transition: all 0.15s; vertical-align: middle;
+    }
+    .bulk-cb:hover { border-color: var(--primary); }
+    .bulk-cb:checked {
+      background: var(--primary); border-color: var(--primary);
+    }
+    .bulk-cb:checked::after {
+      content: ''; position: absolute;
+      left: 4px; top: 1px; width: 5px; height: 9px;
+      border: 2px solid #fff; border-top: none; border-left: none;
+      transform: rotate(45deg);
     }
   </style>
 </head>
