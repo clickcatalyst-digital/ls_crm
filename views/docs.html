@@ -542,6 +542,59 @@
       }
       .docs-overview { grid-template-columns: 1fr 1fr; }
     }
+
+    /* ===== Proportional Adaptive PDF Source Preview Drawer ===== */
+    .left-doc-viewer {
+      position: fixed; 
+      top: 52px; 
+      left: 0; 
+      height: calc(100vh - 52px);
+      background: var(--bg); /* Set to standard app bg so underlying tables don't bleed through text */
+      border-right: 1px solid var(--border); 
+      z-index: 950; 
+      transform: translateX(-100%); 
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      padding: 0; /* Wiped completely clean to allow the PDF player to align edge-to-edge */
+      display: flex; 
+      flex-direction: column; 
+      box-shadow: var(--shadow);
+    }
+    .left-doc-viewer.open { transform: translateX(0); }
+
+    /* 1. LARGE DESKTOP SCREENS (> 1440px width) — Maximum layout spacing */
+    @media (min-width: 1441px) {
+      .left-doc-viewer { width: calc(100vw - 520px); }
+      #reviewPanel.rv-wide-layout ~ .left-doc-viewer { width: calc(100vw - 920px); }
+    }
+
+    /* 2. MID-SIZE LAPTOPS (1024px to 1440px width) — Fluid Percentage Splits */
+    @media (max-width: 1440px) and (min-width: 1024px) {
+      .left-doc-viewer { width: 50vw; }
+      
+      /* For heavy bank statements, allocate 42% width to the PDF and 55% width to the Data Grid */
+      #reviewPanel.rv-wide-layout .rv-panel {
+        width: 55vw !important;
+        max-width: 55vw !important;
+      }
+      #reviewPanel.rv-wide-layout ~ .left-doc-viewer {
+        width: 42vw !important;
+        max-width: 42vw !important;
+        display: flex !important;
+      }
+    }
+
+    /* 3. MOBILE & TABLETS (< 1023px width) — Full Screen Grid Focus */
+    @media (max-width: 1023px) {
+      .left-doc-viewer {
+        display: none !important; /* Hide background frame entirely to free up mobile layout context */
+      }
+      #reviewPanel .rv-panel {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: calc(100vh - 52px) !important;
+        border-radius: 0 !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -709,13 +762,20 @@
         <div class="rv-head">
           <div>
             <div class="rv-doc-no" id="rvDocNo">&mdash;</div>
-            <span class="rv-status" id="rvStatus">pending</span>
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+              <span class="rv-status" id="rvStatus">pending</span>
+              <a id="mobilePdfLink" href="#" target="_blank" style="display: none; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: var(--primary); text-decoration: none; padding: 2px 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; transition: opacity 0.2s;">📄 View PDF</a>
+            </div>
           </div>
           <button class="rv-close" onclick="closeReview()">&times;</button>
         </div>
         <div class="rv-body" id="rvBody"></div>
         <div class="rv-foot" id="rvFoot"></div>
       </div>
+    </div>
+
+    <div id="leftDocumentViewer" class="left-doc-viewer">
+      <iframe id="leftViewerFrame" style="width: 100%; height: 100%; border: none; background: transparent;" src=""></iframe>
     </div>
   </div>
 
@@ -1342,6 +1402,18 @@
         _rvInv = inv;
         await loadStockItems();
 
+        // Bind the cloud file link to your mobile shortcut action bar
+        const mobLink = document.getElementById('mobilePdfLink');
+        if (inv && inv.file_url) {
+          mobLink.href = inv.file_url;
+          mobLink.style.display = 'inline-block';
+          syncLeftDocumentViewer(inv.file_url);
+        } else {
+          mobLink.href = '#';
+          mobLink.style.display = 'none';
+          syncLeftDocumentViewer(null);
+        }
+
         // Toggle wide panel mode layout dynamically based on classification rules
         if (inv.doc_type === 'bank_statement') {
           panel.classList.add('rv-wide-layout');
@@ -1535,7 +1607,7 @@
           </div>
         `;
 
-        // 3. Build the tight spreadsheet data matrix row mapping
+        // 3. Build the tight spreadsheet data matrix row mapping with inline comments and R2 file attachments
         const rowsHtml = _rvLines.map((li, i) => {
           const amtVal = parseFloat(li.amount) || 0;
           const isDebit = amtVal < 0;
@@ -1548,6 +1620,23 @@
               <td style="padding: 4px;"><input value="${esc(li.description || '')}" oninput="_rvLines[${i}].description=this.value" ${dis} style="border: none !important; background: transparent !important; padding: 4px !important; font-size: 12px; color: var(--text); width: 100%; text-overflow: ellipsis;"></td>
               <td style="padding: 4px; background: color-mix(in srgb, var(--danger) 3%, transparent);"><input type="number" step="0.01" placeholder="—" value="${isDebit ? absAmt : ''}" oninput="window.updateBankAmount(${i}, this.value, true)" ${dis} style="border: none !important; background: transparent !important; padding: 4px !important; font-size: 12px; text-align: right; font-weight: 600; color: var(--danger); width: 100%;"></td>
               <td style="padding: 4px; background: color-mix(in srgb, var(--success) 3%, transparent);"><input type="number" step="0.01" placeholder="—" value="${!isDebit ? absAmt : ''}" oninput="window.updateBankAmount(${i}, this.value, false)" ${dis} style="border: none !important; background: transparent !important; padding: 4px !important; font-size: 12px; text-align: right; font-weight: 600; color: var(--success); width: 100%;"></td>
+              <td style="padding: 4px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <input value="${esc(li.comment || '')}" oninput="_rvLines[${i}].comment=this.value" placeholder="Internal comment…" ${dis} style="border: 1px solid var(--border) !important; background: var(--surface) !important; padding: 4px 8px !important; border-radius: 4px; font-size: 11px; color: var(--text); flex: 1; min-width: 0;">
+                  <label class="trash-btn" style="color: var(--text-muted); padding: 4px; margin: 0; cursor: pointer; display: ${dis ? 'none' : 'inline-flex'}; transition: color 0.15s;" title="Attach Receipt / Voucher File">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32a1.5 1.5 0 01-2.12-2.121L16.31 6.31" />
+                    </svg>
+                    <input type="file" style="display: none;" onchange="uploadTransactionLineFile(${i}, this.files[0])">
+                  </label>
+                  ${li.attachment_url ? `
+                    <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                      <a href="${li.attachment_url}" target="_blank" style="color: var(--primary); font-weight: 700; font-size: 11px; white-space: nowrap;" title="View Attached Supporting File">View ↗</a>
+                      ${_rvLocked ? '' : `<span onclick="window.clearTransactionLineFile(${i})" style="color: var(--danger); font-weight: 800; font-size: 13px; cursor: pointer; padding: 0 2px; line-height: 1;" title="Remove Attached File Only">×</span>`}
+                    </div>
+                  ` : ''}
+                </div>
+              </td>
               <td style="padding: 4px; text-align: center;">
                 ${_rvLocked ? '' : `<span class="rv-line-del" onclick="rvDelLine(${i})" style="cursor: pointer; font-weight: 800; font-size: 12px; color: var(--text-muted);">×</span>`}
               </td>
@@ -1561,15 +1650,16 @@
               <thead style="position: sticky; top: 0; background: var(--surface); box-shadow: 0 1px 0 var(--border); z-index: 10;">
                 <tr style="text-align: left; color: var(--text-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
                   <th style="padding: 10px 6px; width: 30px; text-align: center;">#</th>
-                  <th style="padding: 10px 6px; width: 95px;">Date</th>
+                  <th style="padding: 10px 6px; width: 85px;">Date</th>
                   <th style="padding: 10px 6px;">Transaction Remarks</th>
-                  <th style="padding: 10px 6px; width: 105px; text-align: right; color: var(--danger);">Withdrawal (Dr)</th>
-                  <th style="padding: 10px 6px; width: 105px; text-align: right; color: var(--success);">Deposit (Cr)</th>
+                  <th style="padding: 10px 6px; width: 100px; text-align: right; color: var(--danger);">Withdrawal (Dr)</th>
+                  <th style="padding: 10px 6px; width: 100px; text-align: right; color: var(--success);">Deposit (Cr)</th>
+                  <th style="padding: 10px 6px; width: 210px;">Internal Note &amp; Audit File</th>
                   <th style="padding: 10px 6px; width: 25px;"></th>
                 </tr>
               </thead>
               <tbody>
-                ${rowsHtml || '<tr><td colspan="6" style="padding: 16px; text-align: center; color: var(--text-muted);">No records found</td></tr>'}
+                ${rowsHtml || '<tr><td colspan="7" style="padding: 16px; text-align: center; color: var(--text-muted);">No records found</td></tr>'}
               </tbody>
             </table>
           </div>`;
@@ -1708,10 +1798,30 @@
       } catch (e) {}
     }
 
+    function syncLeftDocumentViewer(url) {
+      const viewer = document.getElementById('leftDocumentViewer');
+      const frame = document.getElementById('leftViewerFrame');
+      if (window.innerWidth <= 768) return; 
+
+      if (url) {
+        // If a duplicate protocol sneaked into older database records, strip the extra prefix clean
+        let cleanUrl = url.trim();
+        if (cleanUrl.startsWith('https://https://')) {
+          cleanUrl = cleanUrl.replace('https://https://', 'https://');
+        }
+        frame.src = cleanUrl;
+        viewer.classList.add('open');
+      } else {
+        viewer.classList.remove('open');
+        frame.src = '';
+      }
+    }
+
     function closeReview() { 
       const panel = document.getElementById('reviewPanel');
       panel.classList.remove('open'); 
       panel.classList.remove('rv-wide-layout'); // Clear wide configurations state on drawer close
+      syncLeftDocumentViewer(null);             // Collapse the left PDF reader along with right drawer
       _rvInv = null; 
       _poMode = false; 
     }
@@ -1997,6 +2107,55 @@
       if (!confirm('Cancel this PO? This cannot be undone.')) return;
       try { await api(`/api/po/${id}/cancel`, { method: 'POST' }); showToast('PO cancelled'); closeReview(); loadPOs(); } catch (e) {}
     }
+
+    // Asynchronous background uploader targeting specific transaction spreadsheet indices safely
+    window.uploadTransactionLineFile = async function(index, file) {
+      if (!file) return;
+      
+      const fd = new FormData();
+      fd.append('file', file);
+      
+      showToast('Uploading transaction support file…');
+      try {
+        const res = await fetch('/api/invoices/attachment', { method: 'POST', body: fd });
+        const data = await res.json();
+        
+        if (!res.ok) throw new Error(data.error || 'Cloud storage reject');
+        
+        // Lock the generated cloud access URL directly onto the local memory line record matrix
+        _rvLines[index].attachment_url = data.file_url;
+        showToast('Attachment synchronized successfully');
+        
+        // Refresh table layout instantly to show the "View ↗" shortcut icon link
+        renderLines();
+      } catch(err) {
+        showToast(err.message || 'Failed to dispatch attachment', 'error');
+      }
+    };
+
+    // Inline method to wipe a specific attachment from the R2 cloud bucket and unbind it from memory
+    window.clearTransactionLineFile = async function(index) {
+      if (_rvLocked) return;
+      const url = _rvLines[index].attachment_url;
+      if (!url) return;
+
+      showToast('Removing file from cloud storage…');
+      try {
+        const res = await fetch('/api/invoices/attachment', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Delete rejected');
+
+        _rvLines[index].attachment_url = null;
+        showToast('Attachment deleted from cloud');
+        renderLines(); // Refresh spreadsheet layout columns instantly
+      } catch (err) {
+        showToast(err.message || 'Failed to remove file from storage', 'error');
+      }
+    };
 
     loadDocs();
   </script>

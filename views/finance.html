@@ -946,6 +946,18 @@
             <span style="font-size:12px;color:var(--text-muted);margin-left:8px">invoice total</span>
           </div>`;
         }
+
+        // Seamlessly inject the premium theme input element to hold voucher reminder coordinates
+        html += `
+          <div class="form-group" style="margin-bottom:20px; padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius);">
+            <label style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); display:block; margin-bottom:6px;">Payment Reminder Date</label>
+            <div style="display:flex; gap:8px;">
+              <input type="date" id="ovReminderDate" class="form-control" style="padding:6px 10px; font-size:12px; background:var(--surface); border-color:var(--border); color:var(--text);" value="${v.payment_reminder_date || ''}">
+              <button class="btn btn-primary btn-sm" style="padding:6px 14px; font-size:11px;" onclick="saveVoucherReminder('${esc(v.voucher_no)}')">Save</button>
+            </div>
+          </div>
+        `;
+
         if (v.narration) {
           html += `<div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;padding:10px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border)">${esc(v.narration)}</div>`;
         }
@@ -994,6 +1006,21 @@
     }
 
     function closeVoucher() { document.getElementById('voucherPanel').classList.remove('open'); }
+
+    // Stateful quick save function tied directly to Tally sales voucher tracking namespaces
+    async function saveVoucherReminder(vno) {
+      const dateVal = document.getElementById('ovReminderDate').value;
+      try {
+        await api(`/api/finance/sales/${encodeURIComponent(vno)}/reminder`, {
+          method: 'PUT',
+          body: { reminder_date: dateVal }
+        });
+        showToast('Reminder schedule updated smoothly');
+      } catch (err) {
+        showToast('Failed to save reminder state', 'error');
+      }
+    }
+
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeVoucher(); });
 
     // ─── Init ─────────────────────────────────────────────────────────────────

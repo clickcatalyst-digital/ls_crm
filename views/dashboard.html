@@ -410,16 +410,18 @@
     .cd-jump-btn { width: 100%; text-align: center; background: transparent; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; font-family: var(--font); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text); cursor: pointer; transition: all 0.15s; }
     .cd-jump-btn:hover { background: var(--text); color: #fff; border-color: var(--text); }
     /* ===== Premium Minimalist Origin Color-Coding ===== */
-    .cal-task.origin-manual { border-left-color: #eab308 !important; }
-    .cal-task.origin-po     { border-left-color: #3b82f6 !important; }
-    .cal-task.origin-client { border-left-color: #a855f7 !important; }
-    .cal-task.origin-doc    { border-left-color: #14b8a6 !important; }
+    .cal-task.origin-manual  { border-left-color: #eab308 !important; }
+    .cal-task.origin-po      { border-left-color: #3b82f6 !important; }
+    .cal-task.origin-client  { border-left-color: #a855f7 !important; }
+    .cal-task.origin-doc     { border-left-color: #14b8a6 !important; }
+    .cal-task.origin-payment { border-left-color: #f43f5e !important; } /* Soft Premium Financial Rose */
 
     /* Modal Item Variations matching dark/light variables dynamically */
-    .cd-item.origin-manual { border-left: 3px solid #eab308 !important; background: color-mix(in srgb, #eab308 6%, var(--bg)); }
-    .cd-item.origin-po     { border-left: 3px solid #3b82f6 !important; background: color-mix(in srgb, #3b82f6 6%, var(--bg)); }
-    .cd-item.origin-client { border-left: 3px solid #a855f7 !important; background: color-mix(in srgb, #a855f7 6%, var(--bg)); }
-    .cd-item.origin-doc    { border-left: 3px solid #14b8a6 !important; background: color-mix(in srgb, #14b8a6 6%, var(--bg)); }
+    .cd-item.origin-manual  { border-left: 3px solid #eab308 !important; background: color-mix(in srgb, #eab308 6%, var(--bg)); }
+    .cd-item.origin-po      { border-left: 3px solid #3b82f6 !important; background: color-mix(in srgb, #3b82f6 6%, var(--bg)); }
+    .cd-item.origin-client  { border-left: 3px solid #a855f7 !important; background: color-mix(in srgb, #a855f7 6%, var(--bg)); }
+    .cd-item.origin-doc     { border-left: 3px solid #14b8a6 !important; background: color-mix(in srgb, #14b8a6 6%, var(--bg)); }
+    .cd-item.origin-payment { border-left: 3px solid #f43f5e !important; background: color-mix(in srgb, #f43f5e 6%, var(--bg)); }
 
     /* Deletion Triggers inside the Details Overlay */
     .cd-item-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -602,6 +604,7 @@
   <script>
     // Deterministic source classifier engine based on row parameter states
     function getTaskOriginClass(t) {
+      if (t.title && t.title.includes('Payment Reminder')) return 'origin-payment';
       if (t.invoice_id) return 'origin-doc';
       if (t.title && (t.title.includes('Dispatch PO') || t.title.includes('Post-dispatch follow up'))) return 'origin-po';
       if (t.contact_id || t.crm_contact_id) return 'origin-client';

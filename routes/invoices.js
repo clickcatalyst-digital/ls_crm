@@ -10,6 +10,17 @@ const { createPOFromExtraction } = require('./po');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
+// Connect an enterprise-grade S3-compatible interface straight to your Cloudflare R2 bucket storage space
+const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const r2Client = new S3Client({
+  region: 'auto',
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  },
+});
+
 const EXPENSE_LEDGER_MAP = [
   { kw: 'AGENCY',           ledger: 'Agency Charges'          },
   { kw: 'CFS',              ledger: 'CFS CHARGE'              },
@@ -746,10 +757,26 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No PDF uploaded' });
   const hint = VALID_HINTS.includes(req.body.hint_doc_type) ? req.body.hint_doc_type : null;
   try {
+    // Standardize file keys to avoid spatial character rendering glitches inside iframe viewport containers
+    const fileKey = `${Date.now()}-${req.file.originalname.replace(/\s+/g, '_')}`;
+    
+    // 1. Push raw binary buffer directly to Cloudflare R2 bucket lanes
+    await r2Client.send(new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: fileKey,
+      Body: req.file.buffer,
+      ContentType: 'application/pdf'
+    }));
+
+    // Clean domain wrapper to strip any trailing/leading protocol schemas entered by mistake
+    const cleanDomain = (process.env.R2_PUBLIC_DOMAIN_URL || '').trim().replace(/^https?:\/\//i, '');
+    const generatedUrl = `https://${cleanDomain}/${fileKey}`;
+
+    // 2. Log record tracking details inside Turso alongside its cloud access URL path
     const result = await execute(
-      `INSERT INTO crm_invoices (uploaded_by, original_filename, doc_type, status, line_items, tally_xml)
-       VALUES (?, ?, ?, 'reading', '[]', '')`,
-      [req.user.username, req.file.originalname, hint || null]
+      `INSERT INTO crm_invoices (uploaded_by, original_filename, doc_type, status, line_items, tally_xml, file_url)
+       VALUES (?, ?, ?, 'reading', '[]', '', ?)`,
+      [req.user.username, req.file.originalname, hint || null, generatedUrl]
     );
     const invoiceId = Number(result.lastId);
     const taskResult = await execute(
@@ -929,7 +956,8 @@ router.post('/:id/reject', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  const inv = await queryOne('SELECT status FROM crm_invoices WHERE id = ?', [req.params.id]);
+  // Pull both status and file_url coordinates to evaluate object lifecycles accurately
+  const inv = await queryOne('SELECT status, file_url FROM crm_invoices WHERE id = ?', [req.params.id]);
   if (!inv) return res.status(404).json({ error: 'Not found' });
 
   if (inv.status === 'pushed') {
@@ -946,7 +974,20 @@ router.delete('/:id', async (req, res) => {
     });
   }
 
-  // Hard delete: Cleanly wipe out all associated tasks to prevent orphaned calendar entries entirely
+  // Hard delete: Physically purge the main document file from Cloudflare R2 first if a cloud path exists
+  if (inv.file_url) {
+    try {
+      const key = inv.file_url.split('/').pop();
+      await r2Client.send(new DeleteObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: key
+      }));
+    } catch (r2Err) {
+      console.error('Failed to purge document from R2 on hard delete:', r2Err.message);
+    }
+  }
+
+  // Clean up database rows safely
   await execute('DELETE FROM crm_tasks WHERE invoice_id = ?', [req.params.id]);
   await execute('DELETE FROM crm_invoices WHERE id = ?', [req.params.id]);
   res.json({ success: true, soft: false });
@@ -1090,12 +1131,69 @@ router.post('/telegram-webhook', async (req, res) => {
         const fileRes = await fetch(`https://api.telegram.org/file/bot${token}/${fileInfo.result.file_path}`);
         const buffer = Buffer.from(await fileRes.arrayBuffer());
 
+        // Instantly stream incoming Telegram chat document vectors to Cloudflare before spinning background processing workers
+        const tgKey = `${Date.now()}-${filename.replace(/\s+/g, '_')}`;
+        await r2Client.send(new PutObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: tgKey,
+          Body: buffer,
+          ContentType: 'application/pdf'
+        }));
+
+        // Clean domain wrapper to strip any trailing/leading protocol schemas entered by mistake
+        const cleanTgDomain = (process.env.R2_PUBLIC_DOMAIN_URL || '').trim().replace(/^https?:\/\//i, '');
+        const tgUrl = `https://${cleanTgDomain}/${tgKey}`;
+        await execute('UPDATE crm_invoices SET file_url = ? WHERE id = ?', [tgUrl, invoiceId]);
+
         // 4. Delegate to your production multimodal extraction worker pool asynchronously with active Chat ID state tracking variables
         runExtraction(invoiceId, buffer, hint, chatId);
       } catch (err) {
         console.error('Telegram button event lifecycle processing failed:', err.message);
       }
     }
+  }
+});
+
+// POST /api/invoices/attachment — Upload standalone sub-vouchers/receipt attachments per transaction line
+router.post('/attachment', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No attachment provided' });
+  try {
+    const attachmentKey = `tx-${Date.now()}-${req.file.originalname.replace(/\s+/g, '_')}`;
+    
+    // Stream raw file buffer directly into your permanent Cloudflare R2 bucket
+    await r2Client.send(new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: attachmentKey,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype || 'application/pdf'
+    }));
+
+    // Clean domain wrapper to strip any trailing/leading protocol schemas entered by mistake
+    const cleanAttachmentDomain = (process.env.R2_PUBLIC_DOMAIN_URL || '').trim().replace(/^https?:\/\//i, '');
+    const url = `https://${cleanAttachmentDomain}/${attachmentKey}`;
+    res.json({ success: true, file_url: url });
+  } catch (err) {
+    console.error('Line attachment streaming crashed:', err.message);
+    res.status(500).json({ error: 'Failed to preserve attachment: ' + err.message });
+  }
+});
+
+// DELETE /api/invoices/attachment — Wipe standalone transaction line attachment from R2 bucket
+router.delete('/attachment', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'No attachment URL provided' });
+  try {
+    // Isolate the unique cloud hash key filename from the public storage URL path string
+    const key = url.split('/').pop();
+    
+    await r2Client.send(new DeleteObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: key
+    }));
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to purge attachment from R2:', err.message);
+    res.status(500).json({ error: 'Failed to delete file from cloud storage' });
   }
 });
 

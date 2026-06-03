@@ -111,6 +111,55 @@ router.get('/sales/:vno', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// PUT /api/finance/sales/:vno/reminder — Commit a payment reminder date tracker and sync it to global tasks
+router.put('/sales/:vno/reminder', async (req, res) => {
+  try {
+    const { reminder_date } = req.body;
+    const vno = req.params.vno;
+    
+    // Explicitly pull missing schema execution models for isolated security boundaries
+    const { execute, nowIST } = require('../db/schema');
+
+    // 1. Fetch voucher metadata details to populate a high-context task title string
+    const v = await queryOne('SELECT party_name FROM crm_tally_sales_vouchers WHERE voucher_no = ?', [vno]);
+    if (!v) return res.status(404).json({ error: 'Sales voucher entry missing' });
+
+    const partyName = v.party_name || 'Unknown Customer';
+    const taskTitle = `💳 Payment Reminder: Voucher ${vno} (${partyName})`;
+
+    // 2. Commit tracking parameters to core sales voucher row index
+    await execute(
+      'UPDATE crm_tally_sales_vouchers SET payment_reminder_date = ? WHERE voucher_no = ?',
+      [reminder_date || null, vno]
+    );
+
+    // 3. Sync lifecycle state directly with crm_tasks ledger systems
+    if (!reminder_date) {
+      // If date is completely cleared, wipe any associated open reminder tasks to prevent clutter
+      await execute("DELETE FROM crm_tasks WHERE title = ? AND status = 'open'", [taskTitle]);
+    } else {
+      // Look ahead to check if an open reminder task is already active
+      const existingTask = await queryOne("SELECT id FROM crm_tasks WHERE title = ? AND status = 'open'", [taskTitle]);
+      
+      if (existingTask) {
+        // Adjust the due date of the current active reminder task
+        await execute("UPDATE crm_tasks SET due_date = ? WHERE id = ?", [reminder_date, existingTask.id]);
+      } else {
+        // Insert a brand new, color-codeable system task reminder
+        await execute(
+          `INSERT INTO crm_tasks (contact_id, title, due_date, assigned_to, created_by, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [null, taskTitle, reminder_date, req.user?.username || 'system', 'system', nowIST()]
+        );
+      }
+    }
+
+    res.json({ success: true, message: 'Payment reminder date and task updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/finance/inventory
 router.get('/inventory', async (req, res) => {
   try {
