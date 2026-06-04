@@ -20,6 +20,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
+app.get('/api/config/brand', (req, res) => {
+  res.json({
+    prefix: process.env.BRAND_PREFIX || 'LS',
+    name:   process.env.BRAND_NAME   || 'Technologies'
+  });
+});
+
 function requireLogin(req, res, next) {
   // Allow secure incoming webhooks from Telegram to bypass browser authentication checkpoints
   if (req.path === '/api/invoices/telegram-webhook') return next();

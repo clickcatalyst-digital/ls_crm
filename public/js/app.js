@@ -281,3 +281,13 @@ class PaginatedTable {
     return [1, '…', current - 1, current, current + 1, '…', total];
   }
 }
+
+// Brand customisation — driven by BRAND_PREFIX / BRAND_NAME in .env
+(async function loadBrand() {
+  try {
+    const b = await fetch('/api/config/brand').then(r => r.json());
+    const label = `${b.prefix}<span>${b.name.toUpperCase()}</span> CRM`;
+    document.querySelectorAll('.nav-brand').forEach(el => el.innerHTML = label);
+    document.title = document.title.replace(/LS\s+Technolog(?:ies|y)/i, `${b.prefix} ${b.name}`);
+  } catch {}
+})();

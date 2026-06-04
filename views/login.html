@@ -30,6 +30,10 @@
     </div>
   </div>
   <script>
+    fetch('/api/config/brand').then(r => r.json()).then(b => {
+      document.querySelector('h1').textContent = `${b.prefix.toUpperCase()} ${b.name.toUpperCase()}`;
+      document.title = `Login | ${b.prefix} ${b.name} CRM`;
+    }).catch(() => {});
     async function login() {
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
