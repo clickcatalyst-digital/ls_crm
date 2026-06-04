@@ -4,41 +4,251 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login | LS Technology CRM</title>
+  <title>Login | CRM</title>
   <link rel="stylesheet" href="/public/css/style.css">
+  <style>
+    html, body { overflow: hidden; height: 100%; }
+
+    /* ── Ghost dashboard (decorative skeleton behind the veil) ── */
+    .ghost {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      pointer-events: none; user-select: none;
+    }
+    .g-nav {
+      height: 52px; background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 24px; gap: 20px;
+    }
+    .g-pill { background: var(--border); border-radius: 5px; }
+    .g-body { padding: 24px 28px; }
+    .g-header { margin-bottom: 20px; }
+    .g-row { display: flex; gap: 12px; }
+    .g-kpi {
+      flex: 1; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px;
+    }
+    .g-card {
+      background: var(--surface);
+      border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px;
+    }
+    .g-task-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 0; border-bottom: 1px solid var(--border);
+    }
+    .g-task-row:last-child { border-bottom: none; }
+    .g-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .g-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+    .g-bar-row:last-child { margin-bottom: 0; }
+    .g-track { flex: 1; height: 11px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+    .g-fill  { height: 100%; border-radius: 4px; opacity: 0.4; }
+
+    /* ── Blur + dim veil ── */
+    .veil {
+      position: fixed; inset: 0; z-index: 10;
+      backdrop-filter: blur(10px) saturate(0.8);
+      -webkit-backdrop-filter: blur(10px) saturate(0.8);
+      background: rgba(8, 8, 8, 0.38);
+    }
+
+    /* ── Login card ── */
+    .stage {
+      position: fixed; inset: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .login-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; width: 100%; max-width: 356px;
+      padding: 40px 34px 34px;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.035);
+      animation: rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(20px) scale(0.97); }
+      to   { opacity: 1; transform: none; }
+    }
+    .lc-brand { text-align: center; margin-bottom: 30px; }
+    .lc-brand h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; margin: 0 0 5px; }
+    .lc-brand p  { font-size: 12px; color: var(--text-muted); margin: 0; }
+    .login-card .form-group { margin-bottom: 14px; }
+    .login-card .btn-primary { margin-top: 6px; letter-spacing: 0.3px; }
+
+    /* Theme toggle */
+    .corner-theme { position: fixed; top: 16px; right: 16px; z-index: 30; }
+
+    @media (max-width: 640px) {
+      .g-body { padding: 16px; }
+      .g-row  { gap: 8px; }
+      .g-kpi  { padding: 14px; }
+    }
+  </style>
 </head>
 <body>
-  <div style="min-height:100vh; display:flex; align-items:center; justify-content:center;">
-    <div style="width:100%; max-width:380px; padding:20px;">
-      <div style="text-align:center; margin-bottom:32px;">
-        <h1 style="font-size:18px; font-weight:700; letter-spacing:-0.5px;">LS TECHNOLOGY</h1>
-        <p style="color:var(--text-muted); font-size:12px; margin-top:4px;">CRM System</p>
+
+  <!-- Ghost dashboard -->
+  <div class="ghost" aria-hidden="true">
+    <div class="g-nav">
+      <div class="g-pill" style="width:110px; height:13px;"></div>
+      <div style="flex:1"></div>
+      <div class="g-pill" style="width:46px; height:9px;"></div>
+      <div class="g-pill" style="width:46px; height:9px;"></div>
+      <div class="g-pill" style="width:46px; height:9px;"></div>
+      <div class="g-pill" style="width:30px; height:30px; border-radius:50%;"></div>
+    </div>
+    <div class="g-body">
+      <div class="g-header">
+        <div class="g-pill" style="width:200px; height:16px; margin-bottom:8px;"></div>
+        <div class="g-pill" style="width:120px; height:9px;"></div>
       </div>
-      <div class="card">
-        <div class="card-title">Login</div>
-        <div class="form-group">
-          <label>Username</label>
-          <input type="text" id="username" class="form-control" placeholder="Enter username" autofocus>
+      <!-- KPI row -->
+      <div class="g-row" style="margin-bottom:14px;">
+        <div class="g-kpi">
+          <div class="g-pill" style="width:44px;height:22px;border-radius:7px;background:var(--primary);opacity:0.28;margin-bottom:8px;"></div>
+          <div class="g-pill" style="width:72px;height:7px;"></div>
         </div>
-        <div class="form-group">
-          <label>Password</label>
-          <input type="password" id="password" class="form-control" placeholder="Enter password">
+        <div class="g-kpi">
+          <div class="g-pill" style="width:36px;height:22px;border-radius:7px;background:var(--success);opacity:0.28;margin-bottom:8px;"></div>
+          <div class="g-pill" style="width:58px;height:7px;"></div>
         </div>
-        <button class="btn btn-primary btn-block" onclick="login()" id="loginBtn">Login</button>
-        <div id="loginError" style="display:none; margin-top:12px; color:var(--danger); font-size:13px; text-align:center;"></div>
+        <div class="g-kpi">
+          <div class="g-pill" style="width:52px;height:22px;border-radius:7px;background:var(--warning);opacity:0.28;margin-bottom:8px;"></div>
+          <div class="g-pill" style="width:64px;height:7px;"></div>
+        </div>
+        <div class="g-kpi">
+          <div class="g-pill" style="width:40px;height:22px;border-radius:7px;opacity:0.18;margin-bottom:8px;"></div>
+          <div class="g-pill" style="width:50px;height:7px;"></div>
+        </div>
+      </div>
+      <!-- Cards row -->
+      <div class="g-row">
+        <!-- Tasks -->
+        <div class="g-card" style="flex:1.4;">
+          <div class="g-pill" style="width:90px;height:9px;margin-bottom:14px;"></div>
+          <div class="g-task-row">
+            <div class="g-dot" style="background:var(--danger);"></div>
+            <div style="flex:1;">
+              <div class="g-pill" style="width:65%;height:8px;margin-bottom:5px;"></div>
+              <div class="g-pill" style="width:38%;height:6px;"></div>
+            </div>
+            <div class="g-pill" style="width:52px;height:18px;border-radius:6px;"></div>
+          </div>
+          <div class="g-task-row">
+            <div class="g-dot" style="background:var(--warning);"></div>
+            <div style="flex:1;">
+              <div class="g-pill" style="width:50%;height:8px;margin-bottom:5px;"></div>
+              <div class="g-pill" style="width:30%;height:6px;"></div>
+            </div>
+            <div class="g-pill" style="width:52px;height:18px;border-radius:6px;"></div>
+          </div>
+          <div class="g-task-row">
+            <div class="g-dot" style="background:var(--primary);"></div>
+            <div style="flex:1;">
+              <div class="g-pill" style="width:75%;height:8px;margin-bottom:5px;"></div>
+              <div class="g-pill" style="width:42%;height:6px;"></div>
+            </div>
+            <div class="g-pill" style="width:52px;height:18px;border-radius:6px;"></div>
+          </div>
+        </div>
+        <!-- Pipeline -->
+        <div class="g-card" style="flex:1;">
+          <div class="g-pill" style="width:70px;height:9px;margin-bottom:16px;"></div>
+          <div class="g-bar-row">
+            <div class="g-pill" style="width:54px;height:7px;flex-shrink:0;"></div>
+            <div class="g-track"><div class="g-fill" style="width:78%;background:var(--primary);"></div></div>
+            <div class="g-pill" style="width:14px;height:8px;"></div>
+          </div>
+          <div class="g-bar-row">
+            <div class="g-pill" style="width:54px;height:7px;flex-shrink:0;"></div>
+            <div class="g-track"><div class="g-fill" style="width:55%;background:var(--warning);"></div></div>
+            <div class="g-pill" style="width:14px;height:8px;"></div>
+          </div>
+          <div class="g-bar-row">
+            <div class="g-pill" style="width:54px;height:7px;flex-shrink:0;"></div>
+            <div class="g-track"><div class="g-fill" style="width:90%;background:var(--success);"></div></div>
+            <div class="g-pill" style="width:14px;height:8px;"></div>
+          </div>
+          <div class="g-bar-row">
+            <div class="g-pill" style="width:54px;height:7px;flex-shrink:0;"></div>
+            <div class="g-track"><div class="g-fill" style="width:32%;background:var(--danger);"></div></div>
+            <div class="g-pill" style="width:14px;height:8px;"></div>
+          </div>
+          <div class="g-bar-row">
+            <div class="g-pill" style="width:54px;height:7px;flex-shrink:0;"></div>
+            <div class="g-track"><div class="g-fill" style="width:20%;background:var(--text-muted);opacity:0.2;"></div></div>
+            <div class="g-pill" style="width:14px;height:8px;"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
+
+  <!-- Veil -->
+  <div class="veil"></div>
+
+  <!-- Theme toggle -->
+  <button class="theme-toggle corner-theme" onclick="toggleLoginTheme()" title="Toggle theme">
+    <svg id="loginThemeIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/>
+    </svg>
+  </button>
+
+  <!-- Login card -->
+  <div class="stage">
+    <div class="login-card">
+      <div class="lc-brand">
+        <h1 id="brandName">CRM</h1>
+        <p>Sign in to your workspace</p>
+      </div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="username" class="form-control" placeholder="Enter username"
+               autofocus autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" class="form-control" placeholder="Enter password"
+               autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary btn-block" id="loginBtn" onclick="login()">Sign In</button>
+      <div id="loginError" style="display:none; margin-top:12px; color:var(--danger); font-size:13px; text-align:center;"></div>
+    </div>
+  </div>
+
   <script>
+    // Apply saved theme before paint — no app.js on this page
+    (function () {
+      const t = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+      updateLoginThemeIcon(t);
+    })();
+
+    // Brand
     fetch('/api/config/brand').then(r => r.json()).then(b => {
-      document.querySelector('h1').textContent = `${b.prefix.toUpperCase()} ${b.name.toUpperCase()}`;
+      document.getElementById('brandName').textContent =
+        `${b.prefix.toUpperCase()} ${b.name.toUpperCase()}`;
       document.title = `Login | ${b.prefix} ${b.name} CRM`;
     }).catch(() => {});
+
+    function toggleLoginTheme() {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const next = isDark ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      updateLoginThemeIcon(next);
+    }
+    function updateLoginThemeIcon(theme) {
+      const icon = document.getElementById('loginThemeIcon');
+      if (!icon) return;
+      icon.innerHTML = theme === 'dark'
+        ? '<path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75 9.75 9.75 0 0 1 8.25 6 9.72 9.72 0 0 1 9 2.252 9.75 9.75 0 0 0 3 12a9.75 9.75 0 0 0 9.75 9.75c2.385 0 4.575-.86 6.252-2.248Z"/>'
+        : '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/>';
+    }
+
     async function login() {
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
-      const errorEl = document.getElementById('loginError');
-      const btn = document.getElementById('loginBtn');
+      const errorEl  = document.getElementById('loginError');
+      const btn      = document.getElementById('loginBtn');
 
       if (!username || !password) {
         errorEl.textContent = 'Enter both username and password';
@@ -47,11 +257,11 @@
       }
 
       btn.disabled = true;
-      btn.textContent = 'Logging in...';
+      btn.textContent = 'Signing in…';
       errorEl.style.display = 'none';
 
       try {
-        const res = await fetch('/api/login', {
+        const res  = await fetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password })
@@ -59,26 +269,28 @@
         const data = await res.json();
 
         if (res.ok) {
-          document.cookie = `token=${data.token}; path=/; max-age=${30*24*60*60}; SameSite=Strict`;
+          document.cookie = `token=${data.token}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Strict`;
           window.location.href = '/';
         } else {
           errorEl.textContent = data.error || 'Login failed';
           errorEl.style.display = 'block';
         }
-      } catch (e) {
+      } catch {
         errorEl.textContent = 'Connection error. Try again.';
         errorEl.style.display = 'block';
       }
 
       btn.disabled = false;
-      btn.textContent = 'Login';
+      btn.textContent = 'Sign In';
     }
 
-    document.getElementById('password').addEventListener('keydown', e => {
-      if (e.key === 'Enter') login();
-    });
-    document.getElementById('username').addEventListener('keydown', e => {
-      if (e.key === 'Enter') document.getElementById('password').focus();
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      if (document.activeElement?.id === 'username') {
+        document.getElementById('password').focus();
+      } else {
+        login();
+      }
     });
   </script>
 </body>

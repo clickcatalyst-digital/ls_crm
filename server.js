@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
 const path = require('path');
-const os = require('os');
+// const os = require('os');
 const morgan = require('morgan');
 const { initDB, queryOne } = require('./db/schema');
 
@@ -94,20 +94,15 @@ function requireLogin(req, res, next) {
     res.json({ username: req.user.username, role: req.user.role });
   });
 
-  const ips = [];
-  const nets = os.networkInterfaces();
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name]) {
-      if (net.family === 'IPv4' && !net.internal) ips.push(net.address);
-    }
-  }
+  // const ips = [];
+  // const nets = os.networkInterfaces();
+  // for (const name of Object.keys(nets)) {
+  //   for (const net of nets[name]) {
+  //     if (net.family === 'IPv4' && !net.internal) ips.push(net.address);
+  //   }
+  // }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\nLS CRM running at:`);
-    console.log(`   Local:   http://localhost:${PORT}`);
-    ips.forEach(ip => console.log(`   Network: http://${ip}:${PORT}`));
-    console.log('');
-  });
+  app.listen(PORT, '0.0.0.0');
 })();
 
 // Keep-alive ping (free tier only)

@@ -288,6 +288,6 @@ class PaginatedTable {
     const b = await fetch('/api/config/brand').then(r => r.json());
     const label = `${b.prefix}<span>${b.name.toUpperCase()}</span> CRM`;
     document.querySelectorAll('.nav-brand').forEach(el => el.innerHTML = label);
-    document.title = document.title.replace(/LS\s+Technolog(?:ies|y)/i, `${b.prefix} ${b.name}`);
+    document.title = document.title.replace(/LS\s+(?:Technolog(?:ies|y)\s+)?CRM/i, `${b.prefix} ${b.name} CRM`);
   } catch {}
 })();
