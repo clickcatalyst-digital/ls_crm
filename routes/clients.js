@@ -20,6 +20,7 @@ router.get('/', async (req, res) => {
   if (status) { sql += ' AND c.status = ?'; params.push(status); }
   if (product_id) { sql += ' AND c.product_id = ?'; params.push(product_id); }
   if (req.query.company_id) { sql += ' AND c.company_id = ?'; params.push(req.query.company_id); }
+  if (req.query.severity) { sql += ' AND c.severity = ?'; params.push(req.query.severity); }
   sql += ' ORDER BY c.updated_at DESC LIMIT 500';
   res.json(await queryAll(sql, params));
 });
@@ -40,7 +41,7 @@ router.get('/:id', async (req, res) => {
 
 // CREATE — finds-or-creates company, then contact, optional first note + next-touchpoint task
 router.post('/', async (req, res) => {
-  const { poc_name, company_name, designation, email, phone, status, product_id, website, industry, note, next_touchpoint, next_touchpoint_title, next_touchpoint_assignee } = req.body;
+  const { poc_name, company_name, designation, email, phone, status, product_id, website, industry, note, next_touchpoint, next_touchpoint_title, next_touchpoint_assignee, severity } = req.body;
   if (!poc_name) return res.status(400).json({ error: 'poc_name is required' });
 
   try {
@@ -57,10 +58,10 @@ router.post('/', async (req, res) => {
     }
 
     const r = await execute(
-      `INSERT INTO crm_contacts (company_id, poc_name, designation, email, phone, status, product_id, owner, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO crm_contacts (company_id, poc_name, designation, email, phone, status, product_id, severity, owner, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [companyId, poc_name.trim(), designation || null, email || null, phone || null,
-       status || 'new', product_id || null, req.user.username, nowIST(), nowIST()]
+       status || 'new', product_id || null, severity || 1, req.user.username, nowIST(), nowIST()]
     );
     const contactId = Number(r.lastId);
 
@@ -79,13 +80,28 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Severity-3 watch list for dashboard news feed
+router.get('/meta/severity-alerts', async (req, res) => {
+  try {
+    const alerts = await queryAll(`
+      SELECT c.id, c.poc_name, c.status, co.name AS company_name
+      FROM crm_contacts c
+      LEFT JOIN crm_companies co ON c.company_id = co.id
+      WHERE c.severity = 3
+      ORDER BY c.poc_name ASC
+      LIMIT 10
+    `);
+    res.json(alerts);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // UPDATE contact fields
 router.put('/:id', async (req, res) => {
-  const { poc_name, designation, email, phone, status, product_id } = req.body;
+  const { poc_name, designation, email, phone, status, product_id, severity } = req.body;
   const result = await execute(
-    `UPDATE crm_contacts SET poc_name = ?, designation = ?, email = ?, phone = ?, status = ?, product_id = ?, updated_at = ?
+    `UPDATE crm_contacts SET poc_name = ?, designation = ?, email = ?, phone = ?, status = ?, product_id = ?, severity = ?, updated_at = ?
      WHERE id = ?`,
-    [poc_name?.trim(), designation || null, email || null, phone || null, status, product_id || null, nowIST(), req.params.id]
+    [poc_name?.trim(), designation || null, email || null, phone || null, status, product_id || null, severity || 1, nowIST(), req.params.id]
   );
   if (!result.changes) return res.status(404).json({ error: 'Contact not found' });
   res.json({ success: true, message: 'Contact updated' });

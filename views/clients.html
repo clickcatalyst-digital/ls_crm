@@ -108,7 +108,7 @@
       max-height: 0; overflow: hidden; opacity: 0; margin-bottom: 0;
       transition: max-height 0.28s ease, opacity 0.2s, margin 0.2s;
     }
-    .filter-panel.open { max-height: 420px; opacity: 1; margin-bottom: 16px; }
+    .filter-panel.open { max-height: 520px; opacity: 1; margin-bottom: 16px; }
     .filter-panel-inner {
       display: grid; grid-template-columns: 1fr 1fr auto;
       gap: 16px 16px; align-items: end;
@@ -345,6 +345,15 @@
               <button class="pill" data-status="lost" onclick="setStatus('lost')">Lost</button>
             </div>
           </div>
+          <div class="fp-row2">
+            <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);flex-shrink:0;">Severity</span>
+            <div class="status-pills" id="severityPills">
+              <button class="pill active" data-sev="" onclick="setSeverity('')">All</button>
+              <button class="pill" data-sev="1" onclick="setSeverity('1')">Low</button>
+              <button class="pill" data-sev="2" onclick="setSeverity('2')">Medium</button>
+              <button class="pill" data-sev="3" onclick="setSeverity('3')">High</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -389,7 +398,16 @@
             <select id="aAssignee" class="form-control"><option value="">Me</option></select>
           </div>
         </div>
-        <div class="form-group"><label>First Call Summary (optional)</label><input type="text" id="aNote" class="form-control" placeholder="Notes from first contact"></div>
+        <div class="form-row">
+          <div class="form-group"><label>First Call Summary (optional)</label><input type="text" id="aNote" class="form-control" placeholder="Notes from first contact"></div>
+          <div class="form-group"><label>Severity</label>
+            <select id="aSeverity" class="form-control">
+              <option value="1">Low</option>
+              <option value="2">Medium</option>
+              <option value="3">High</option>
+            </select>
+          </div>
+        </div>
       </div>
       <div class="add-foot">
         <button class="btn btn-ghost" onclick="closeAdd()">Cancel</button>
@@ -409,12 +427,26 @@
   <script>
     const STATUS_BADGE = { new:'badge-warning', contacted:'badge-warning', qualified:'badge-success', customer:'badge-success', lost:'badge-danger' };
 
+    const SEV_COLOR = { 1:'var(--success)', 2:'var(--warning)', 3:'var(--danger)' };
+    const SEV_LABEL = { 1:'Low', 2:'Medium', 3:'High' };
+    function severityBadge(sev) {
+      const s = sev || 1;
+      return `<span style="font-size:10px;font-weight:800;letter-spacing:0.4px;color:${SEV_COLOR[s]}">${SEV_LABEL[s]}</span>`;
+    }
+
     // ===== Filter state =====
     let searchQuery     = '';
     let statusFilter    = '';
     let filterProduct   = '';
     let filterDesig     = '';
     let _allClients     = [];   // last loaded full set (client-side filtered)
+
+    let severityFilter  = '';
+    function setSeverity(s) {
+      severityFilter = s;
+      document.querySelectorAll('#severityPills .pill').forEach(b => b.classList.toggle('active', b.dataset.sev === s));
+      loadClients();
+    }
 
     const clientsTable = new PaginatedTable({
       containerId: 'clientsTable-container',
@@ -430,12 +462,13 @@
         { label: 'Designation', render: c => esc(c.designation) || '—' },
         { label: 'Product', render: c => esc(c.product_name) || '—' },
         { label: 'Status', render: c => `<span class="badge ${STATUS_BADGE[c.status]||'badge-warning'}">${esc(c.status)}</span>` },
+        { label: 'Sev', render: c => severityBadge(c.severity) },
         {
           label: '',
           render: c => `
             <button class="trash-btn" title="Delete Client" onclick="event.stopPropagation();rowDelete(${c.id}, '${esc(c.poc_name)}')">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244 2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="color:var(--danger)">
+                <path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clip-rule="evenodd"/>
               </svg>
             </button>
           `
@@ -530,6 +563,7 @@
         if (statusFilter && c.status !== statusFilter) return false;
         if (filterProduct && String(c.product_id) !== String(filterProduct)) return false;
         if (filterDesig && (c.designation || '').trim() !== filterDesig) return false;
+        if (severityFilter && String(c.severity || 1) !== severityFilter) return false;
         if (searchQuery) {
           const hay = `${c.poc_name||''} ${c.company_name||''} ${c.email||''}`.toLowerCase();
           if (!hay.includes(searchQuery)) return false;
@@ -613,6 +647,7 @@
           phone: document.getElementById('aPhone').value.trim(),
           status: document.getElementById('aStatus').value,
           product_id: document.getElementById('aProduct').value || null,
+          severity: parseInt(document.getElementById('aSeverity').value) || 1,
           note: document.getElementById('aNote').value.trim(),
           next_touchpoint: document.getElementById('aTouchpoint').value || null,
           next_touchpoint_title: document.getElementById('aTouchTitle').value.trim(),
@@ -641,13 +676,18 @@
             <div class="form-group"><label>POC Name</label><input id="eName" class="form-control" value="${esc(c.poc_name)}"></div>
             <div class="form-group"><label>Designation</label><input id="eDesignation" class="form-control" value="${esc(c.designation)}"></div>
           </div>
-          <div class="form-row">
+          <div class="form-row-3">
             <div class="form-group"><label>Status</label>
               <select id="eStatus" class="form-control">
                 ${['new','contacted','qualified','customer','lost'].map(s=>`<option value="${s}" ${c.status===s?'selected':''}>${s}</option>`).join('')}
               </select>
             </div>
             <div class="form-group"><label>Product</label><select id="eProduct" class="form-control">${productOpts}</select></div>
+            <div class="form-group"><label>Severity</label>
+              <select id="eSeverity" class="form-control">
+                ${[1,2,3].map(s=>`<option value="${s}" ${Number(c.severity||1)===s?'selected':''}>${['Low','Medium','High'][s-1]}</option>`).join('')}
+              </select>
+            </div>
           </div>
           <div class="form-row">
             <div class="form-group"><label>Email</label><input id="eEmail" class="form-control" value="${esc(c.email)}"></div>
@@ -697,6 +737,7 @@
           designation: document.getElementById('eDesignation').value.trim(),
           status: document.getElementById('eStatus').value,
           product_id: document.getElementById('eProduct').value || null,
+          severity: parseInt(document.getElementById('eSeverity').value) || 1,
           email: document.getElementById('eEmail').value.trim(),
           phone: document.getElementById('ePhone').value.trim()
         }});

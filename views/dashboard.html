@@ -47,7 +47,12 @@
       .crm-sidebar.collapsed .sidebar-expanded { display: block; }
       .crm-sidebar.collapsed .sidebar-collapsed { display: none; }
     }
-    .crm-main { flex: 1; min-width: 0; padding: 24px 16px; }
+    .crm-main { flex: 1; min-width: 0; padding: 24px 16px; display: flex; flex-direction: column; }
+    .crm-main .card { display: flex; flex-direction: column; }
+    .crm-main .card[data-view="month"] { flex: 1; }
+    #calBody { display: flex; flex-direction: column; }
+    .crm-main .card[data-view="month"] #calBody { flex: 1; }
+    .cal-cell.week { min-height: 420px; }
     .sidebar-title {
       font-size: 11px; font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.5px; color: var(--text-muted);
@@ -97,6 +102,7 @@
       .crm-sidebar.collapsed .sidebar-collapsed { display: none; }   /* no rail on mobile */
       .crm-sidebar.collapsed #taskList { display: none; }            /* hide list when collapsed */
       .crm-sidebar.collapsed .scope-toggle { display: none !important; }
+      .crm-sidebar.collapsed #sevFeedSection { display: none; }
     }
     /* ===== Calendar ===== */
     .cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
@@ -119,14 +125,15 @@
 
     .cal-grid { display:grid; gap:6px; }
     .cal-grid.week { grid-template-columns:repeat(7,1fr); }
-    .cal-grid.month { grid-template-columns:repeat(7,1fr); }
-    .cal-grid.year { grid-template-columns:repeat(4,1fr); }
+    .cal-grid.month { grid-template-columns:repeat(7,1fr); flex:1; grid-template-rows:auto; grid-auto-rows:1fr; }
+    .cal-grid.year { grid-template-columns:repeat(4,1fr); align-content: start; }
+    .cal-month-cell { min-height: 120px; max-height: 180px; }
     .cal-dow { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:var(--text-muted); text-align:center; padding-bottom:4px; }
     .cal-cell {
       background:var(--bg); border:1px solid var(--border); border-radius:var(--radius);
-      min-height:74px; padding:6px; position:relative; transition:border-color 0.15s;
+      min-height:100px; padding:8px; position:relative; transition:border-color 0.15s; min-width:0;
     }
-    .cal-cell.week { min-height:88px; }
+    .cal-cell.week { min-height: 300px; }
     .cal-cell.muted { opacity:0.35; }
     .cal-cell.today { border-color:var(--primary); border-width:1.5px; }
     .cal-date { font-size:11px; font-weight:700; }
@@ -134,6 +141,7 @@
       background:var(--surface); border:1px solid var(--border); border-left:2px solid var(--primary);
       border-radius:3px; padding:2px 5px; margin-top:4px; font-size:10px; line-height:1.3;
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:default;
+      display:block; width:100%; box-sizing:border-box; min-width:0;
     }
     .cal-task.overdue { border-left-color:var(--danger); }
     .cal-more { font-size:9px; color:var(--text-muted); margin-top:3px; }
@@ -169,6 +177,15 @@
       .cal-agenda { display: block; }         /* show agenda */
       .cal-views { display: none; }           /* week/month/year toggle not needed in agenda */
       .cal-period { min-width: auto; }
+    }
+
+    @media (min-width: 769px) and (max-width: 1100px) {
+      .crm-sidebar { width: 220px; padding: 20px 12px; }
+      .cal-cell { min-height: 80px; padding: 6px; }
+      .cal-cell.week { min-height: 100px; }
+      .cal-task { font-size: 9px; padding: 2px 4px; }
+      .cal-date { font-size: 10px; }
+      .cal-views button { padding: 5px 8px; }
     }
 
     /* ===== Task scope toggle ===== */
@@ -427,6 +444,35 @@
     .cd-item-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .cd-trash-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; transition: all 0.15s; }
     .cd-trash-btn:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+
+    /* ===== S3 Watch Feed ===== */
+    .sev-section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--danger);
+      margin-bottom: 10px; margin-top: 0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    #sevFeedSection {
+      margin-top: 20px; padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .sev-section-title .count-pill { background: var(--danger); }
+    .sev-card {
+      background: color-mix(in srgb, var(--danger) 4%, var(--bg));
+      border: 1px solid var(--border); border-left: 3px solid var(--danger);
+      border-radius: var(--radius); padding: 10px 11px; margin-bottom: 7px;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    }
+    .sev-card:hover { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--bg)); }
+    .sev-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+    .sev-poc { font-size: 12px; font-weight: 700; }
+    .sev-badge {
+      font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent);
+      padding: 2px 6px; border-radius: 10px; flex-shrink: 0;
+    }
+    .sev-company { font-size: 10px; color: var(--text-muted); }
+    .sev-empty { font-size: 11px; color: var(--text-muted); padding: 10px 4px; font-style: italic; }
   </style>
 </head>
 <body>
@@ -482,6 +528,14 @@
           </div>
         </div>
         <div id="taskList"><div class="empty-tasks">Loading…</div></div>
+
+        <!-- S3 Watch Feed -->
+        <div id="sevFeedSection">
+          <div class="sev-section-title">
+            WATCH LIST <span class="count-pill" id="sevCount">0</span>
+          </div>
+          <div id="severityList"><div class="sev-empty">Loading…</div></div>
+        </div>
       </div>
       <!-- COLLAPSED VIEW -->
       <div class="sidebar-collapsed">
@@ -489,6 +543,8 @@
         <div class="c-count" id="collapsedCount">0</div>
         <div class="c-today-dot" id="collapsedDot" style="display:none;"></div>
         <div class="c-label">Tasks</div>
+        <div class="c-count" id="collapsedSevCount" style="background:var(--danger);display:none;">0</div>
+        <div class="c-label" style="color:var(--danger);">S3</div>
       </div>
     </aside>
 
@@ -497,14 +553,6 @@
       <div class="page-header">
         <h1 id="welcomeHead">Home</h1>
         <!-- <p>Pipeline overview and client metrics</p> -->
-      </div>
-
-      <div class="stats-grid">
-        <div class="stat-box"><div class="stat-value" id="dCash">—</div><div class="stat-label">Available Cash</div></div>
-        <div class="stat-box"><div class="stat-value" id="dCollectionHealth">—</div><div class="stat-label">Collection Health</div></div>
-        <div class="stat-box"><div class="stat-value" id="dUnmappedDebt" style="color:var(--danger)">—</div><div class="stat-label">Unmapped Receivables</div></div>
-        <div class="stat-box"><div class="stat-value" id="dSales">—</div><div class="stat-label">Revenue Momentum</div></div>
-        <div class="stat-box"><div class="stat-value" id="dPending">—</div><div class="stat-label">Approval Backlog</div></div>
       </div>
 
       <div class="card">
@@ -617,43 +665,6 @@
 
     const INR = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
-    async function loadDashboardKPIs() {
-      try {
-        const [cb, pnl, debtors, invoices] = await Promise.all([
-          api('/api/finance/cash-bank'),
-          api('/api/finance/pnl-snapshot'),
-          api('/api/finance/debtors'),
-          api('/api/invoices?status=pending')
-        ]);
-        
-        // 1. Cash (Bank + Cash on hand)
-        const cashTotal = (cb.accounts || []).reduce((s, a) => s + (a.balance || 0), 0);
-        document.getElementById('dCash').textContent = INR(cashTotal);
-
-        // 2. Collection Health (Global Coverage Ratio)
-        const totalTally   = debtors.reduce((s, d) => s + d.tally_balance, 0);
-        const totalTracked = debtors.reduce((s, d) => s + d.tracked_outstanding, 0);
-        const globalHealth = totalTally > 0 ? Math.round((totalTracked / totalTally) * 100) : 100;
-        
-        const healthEl = document.getElementById('dCollectionHealth');
-        healthEl.textContent = Math.min(globalHealth, 100) + '%'; // Cap at 100% for the "Story"
-        healthEl.style.color = globalHealth < 85 ? 'var(--danger)' : 'var(--success)';
-
-        // 2. Unmapped Debt (Identifies cash exposure not assigned to CRM profiles)
-        const unmappedTotal = debtors.reduce((sum, d) => sum + (d.gap || 0), 0);
-        const unmappedEl = document.getElementById('dUnmappedDebt');
-        unmappedEl.textContent = INR(unmappedTotal);
-
-        // 3. Sales Momentum (Year-to-date or monthly Sales)
-        document.getElementById('dSales').textContent = INR(pnl.totalSales);
-
-        // 4. Operational Friction (Invoices/BOEs waiting for review)
-        const pendingEl = document.getElementById('dPending');
-        pendingEl.textContent = invoices.length;
-        pendingEl.style.color = invoices.length > 10 ? 'var(--warning)' : 'var(--text)';
-      } catch (e) {}
-    }
-
     // ===== Tasks + assignment =====
     let taskScope = 'mine';
     let currentUser = null;
@@ -757,6 +768,33 @@
         } catch (e) {}
     }
 
+    // ===== S3 Watch Feed =====
+    async function loadSeverityFeed() {
+      try {
+        const alerts = await api('/api/clients/meta/severity-alerts');
+        document.getElementById('sevCount').textContent = alerts.length;
+        document.getElementById('collapsedSevCount').style.display = alerts.length ? 'flex' : 'none';
+        document.getElementById('collapsedSevCount').textContent = alerts.length;
+        document.getElementById('sevFeedSection').style.display = '';
+
+        const list = document.getElementById('severityList');
+        if (!alerts.length) { list.innerHTML = '<div class="sev-empty">No high alert clients right now.</div>'; return; }
+        // if (!alerts.length) { list.innerHTML = '<div class="sev-empty"><svg style="display:inline;vertical-align:middle;margin-right:4px;" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="var(--success)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>No high alert clients right now.</div>'; return; }
+
+        list.innerHTML = alerts.map(t => `
+          <div class="sev-card" onclick="window.location='/clients?open=${t.id}'">
+            <div class="sev-card-top">
+              <span class="sev-poc">${esc(t.poc_name)}</span>
+              <span class="sev-badge">HIGH</span>
+            </div>
+            <div class="sev-company">${esc(t.company_name || '—')} · ${esc(t.status)}</div>
+          </div>`).join('');
+      } catch (e) {
+        document.getElementById('sevFeedSection').style.display = '';
+        document.getElementById('severityList').innerHTML = '<div class="sev-empty">Could not load watch list</div>';
+      }
+    }
+
     function avatarHTML(t) {
       if (!t.assigned_to) {
         return `<div class="avatar unassigned" onclick="openAssign(event, ${t.id})" title="Unassigned">
@@ -843,7 +881,7 @@
 
     const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    const fmtISO = d => d.toISOString().substring(0,10);
+    const fmtISO = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     // IST-anchored "today" so overdue/today is correct near midnight
     const todayISO = new Date(Date.now() + 5.5*3600*1000).toISOString().substring(0,10);
 
@@ -910,6 +948,8 @@
     async function renderCalendar() {
       const body = document.getElementById('calBody');
       const period = document.getElementById('calPeriod');
+      const card = document.querySelector('.crm-main .card');
+      card.dataset.view = window.innerWidth <= 768 ? 'agenda' : calView;
 
       // Mobile: vertical agenda instead of grid
       if (window.innerWidth <= 768) {
@@ -1045,7 +1085,10 @@
             trashBtn.style.padding = '8px 12px';
             trashBtn.style.flexShrink = '0';
             trashBtn.title = 'Delete Task Permanently';
-            trashBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244 2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>`;
+            trashBtn.innerHTML = `
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clip-rule="evenodd"/>
+              </svg>`;
             trashBtn.onclick = async () => {
               if (!confirm('Permanently delete this task?')) return;
               try {
@@ -1236,8 +1279,8 @@
     renderCalendar();
     }
 
-    loadDashboardKPIs();
     initTaskScope();
+    loadSeverityFeed();
     renderCalendar();
 
     // ===== Calendar Detail Overlay Core Lifecycle Managers =====
@@ -1275,8 +1318,8 @@
                   <div class="cd-item-title">${esc(t.title)}</div>
                 </div>
                 <button class="cd-trash-btn" title="Delete Task" onclick="event.stopPropagation(); deleteCalDetailsTask(${t.id})">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244 2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="color:var(--danger)">
+                    <path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clip-rule="evenodd"/>
                   </svg>
                 </button>
               </div>
