@@ -275,16 +275,125 @@
     .rv-btn-confirm { background: var(--primary); color: #fff; }
     .rv-btn-dispatch { background: var(--success); color: #fff; }
 
-    /* ===== Docs / PO tab toggle ===== */
-    .docs-tabs { display: flex; gap: 6px; margin-bottom: 20px; }
-    .docs-tab {
-      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
-      color: var(--text-muted); font-family: var(--font); font-size: 12px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.4px; padding: 9px 18px; cursor: pointer; transition: all 0.15s;
+    /* ===== Tab navigation ===== */
+    .docs-tab-nav {
+      display: flex;
+      align-items: flex-end;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+      gap: 0;
     }
-    .docs-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .docs-tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: -1px;
+      padding: 0 18px 12px;
+      text-transform: uppercase;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .docs-tab-btn:hover { color: var(--text); }
+    .docs-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
     .tab-pane { display: none; }
-    .tab-pane.active { display: block; }
+    .tab-pane.active { display: block; animation: tab-in 0.16s ease; }
+    @keyframes tab-in {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== Tab intelligence cards ===== */
+    .tab-intel {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: stretch;
+    }
+    .tab-stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      flex: 1;
+      min-width: 100px;
+      padding: 14px 18px;
+      transition: border-color 0.15s;
+    }
+    .ts-value {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1;
+      color: var(--text);
+    }
+    .ts-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+    .ts-sub {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* ===== Tab toolbar ===== */
+    .tab-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .upload-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      padding: 7px 12px;
+      text-transform: uppercase;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .upload-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .tab-select {
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--bg)
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+        no-repeat right 8px center;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 28px 7px 10px;
+      transition: border-color 0.15s;
+    }
+    .tab-select:focus { outline: none; border-color: var(--primary); }
 
     /* ===== PO bits inside the panel ===== */
     .po-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; padding: 2px 8px; border-radius: 10px; }
@@ -622,6 +731,39 @@
         border-radius: 0 !important;
       }
     }
+    /* ===== Custom Dropdown ===== */
+    .cd-trigger {
+      width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;
+      background:var(--bg); border:1px solid var(--border); border-radius:var(--radius);
+      color:var(--text); padding:7px 10px; cursor:pointer; font-family:var(--font);
+      font-size:12.5px; text-align:left; transition:border-color 0.15s;
+    }
+    .cd-trigger:hover { border-color:var(--primary); }
+    .cd-trigger.open {
+      border-color:var(--primary); border-bottom-color:transparent;
+      border-radius:var(--radius) var(--radius) 0 0;
+    }
+    .cd-trigger .cd-value { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cd-panel {
+      background:var(--surface); border:1px solid var(--primary); border-top:none;
+      border-radius:0 0 var(--radius) var(--radius); margin-bottom:6px;
+    }
+    .cd-search {
+      width:100%; box-sizing:border-box; padding:7px 10px; font-size:12px;
+      background:var(--bg); border:none; border-bottom:1px solid var(--border);
+      color:var(--text); font-family:var(--font);
+    }
+    .cd-search:focus { outline:none; }
+    .cd-list { max-height:160px; overflow-y:auto; }
+    .cd-opt {
+      padding:6px 10px; font-size:12px; cursor:pointer;
+      display:flex; flex-direction:column; gap:1px;
+      border-bottom:1px solid var(--border); transition:background 0.1s;
+    }
+    .cd-opt:last-child { border-bottom:none; }
+    .cd-opt:hover, .cd-opt.cd-active { background:var(--bg); }
+    .cd-opt .cd-code { font-weight:700; font-size:11.5px; color:var(--primary); }
+    .cd-opt .cd-desc { font-size:10px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   </style>
 </head>
 <body>
@@ -667,92 +809,155 @@
       <!-- <p>Add a document and we read it, then queue it for your review before anything reaches Tally</p> -->
     </div>
 
-    <div class="docs-overview">
-      <div class="stat-box">
-        <div class="stat-value" id="kpiBacklog" style="color:var(--warning);">0</div>
-        <div class="stat-label">Approval Backlog</div>
-        <div id="kpiBacklogVal" style="font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 600;">₹0.00 total</div>
+    <!-- Tab navigation -->
+    <div class="docs-tab-nav">
+      <button class="docs-tab-btn active" data-tab="all"      onclick="setTab('all')">All</button>
+      <button class="docs-tab-btn"        data-tab="invoices" onclick="setTab('invoices')">Invoices</button>
+      <button class="docs-tab-btn"        data-tab="bank"     onclick="setTab('bank')">Bank</button>
+      <button class="docs-tab-btn"        data-tab="po"       onclick="setTab('po')">PO</button>
+    </div>
+
+    <div id="pane-all" class="tab-pane active" data-tab="all">
+
+      <div class="docs-overview">
+        <div class="stat-box">
+          <div class="stat-value" id="kpiBacklog" style="color:var(--warning);">0</div>
+          <div class="stat-label">Approval Backlog</div>
+          <div id="kpiBacklogVal" style="font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 600;">₹0.00 total</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="kpiBottlenecks" style="color:var(--danger);">0</div>
+          <div class="stat-label">Ingestion Blocked</div>
+          <div id="kpiBottlenecksVal" style="font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 600;">0 error logs</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="kpiReady" style="color:var(--success);">0</div>
+          <div class="stat-label">Ready For Tally</div>
+          <div id="kpiReadyVal" style="font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 600;">₹0.00 staged</div>
+        </div>
+        <div class="queue-box">
+          <div class="qb-title">Queue Mix by Classification</div>
+          <div id="queueTypeBars"></div>
+        </div>
       </div>
-      <div class="stat-box">
-        <div class="stat-value" id="kpiBottlenecks" style="color:var(--danger);">0</div>
-        <div class="stat-label">Ingestion Blocked</div>
-        <div id="kpiBottlenecksVal" style="font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 600;">0 error logs</div>
+
+      <div class="card">
+        <div class="docs-toolbar">
+          <div class="dt-left">
+            <button class="btn btn-primary btn-sm" onclick="openAdd()">+ Add</button>
+            <button class="select-all-btn" id="selectAllBtn" onclick="bulkSelectAll()" style="display:none;">Select all</button>
+          </div>
+          <div class="search-wrap">
+            <span class="search-ico">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
+              </svg>
+            </span>
+            <input class="search-input" id="searchInput" placeholder="Search…" oninput="onSearch(this.value)">
+          </div>
+          <button class="filter-toggle" id="filterToggle" onclick="toggleFilterPanel()">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"/>
+            </svg>
+            Filters
+          </button>
+        </div>
+        <div class="filter-panel" id="filterPanel">
+          <div class="filter-panel-inner">
+            <div class="fp-field">
+              <label>Doc Type</label>
+              <select id="fpDocType" onchange="onFilterChange()">
+                <option value="">All types</option>
+                <option value="purchase_invoice">Purchase Invoice</option>
+                <option value="freight_invoice">Freight Invoice</option>
+                <option value="bill_of_entry">Bill of Entry</option>
+                <option value="bank_statement">Bank Statement</option>
+              </select>
+            </div>
+            <div class="fp-field">
+              <label>Added from</label>
+              <input type="date" id="fpDateFrom" onchange="onFilterChange()">
+            </div>
+            <div class="fp-field">
+              <label>Added to</label>
+              <input type="date" id="fpDateTo" onchange="onFilterChange()">
+            </div>
+            <button class="fp-clear" onclick="clearFilters()">Clear</button>
+            <div class="fp-row2">
+              <div class="doc-filters" id="docFilters">
+                <button class="doc-filter active" data-status="all" onclick="setFilter('all')">All</button>
+                <button class="doc-filter" data-status="pending" onclick="setFilter('pending')">Pending</button>
+                <button class="doc-filter" data-status="approved" onclick="setFilter('approved')">Approved</button>
+                <button class="doc-filter" data-status="pushed" onclick="setFilter('pushed')">Pushed</button>
+                <button class="doc-filter" data-status="rejected" onclick="setFilter('rejected')">Rejected</button>
+              </div>
+              <label class="fp-archived">
+                <input type="checkbox" class="bulk-cb" id="fpDeleted" onchange="onFilterChange()">
+                Show deleted records
+              </label>
+            </div>
+          </div>
+        </div>
+        <div id="bulkBar" style="display:none;align-items:center;gap:12px;margin-bottom:12px;padding:8px 12px;background:color-mix(in srgb, var(--primary) 8%, var(--bg));border:1px solid var(--primary);border-radius:var(--radius);">
+          <span id="bulkCount" style="font-size:12px;font-weight:700;color:var(--text);"></span>
+          <button class="rv-add-btn" style="border-style:solid;border-color:var(--danger);color:var(--danger);" onclick="bulkDelete()">Delete</button> 
+        </div>
+        <div id="docsTable-container"></div>
       </div>
-      <div class="stat-box">
-        <div class="stat-value" id="kpiReady" style="color:var(--success);">0</div>
-        <div class="stat-label">Ready For Tally</div>
-        <div id="kpiReadyVal" style="font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 600;">₹0.00 staged</div>
-      </div>
-      <div class="queue-box">
-        <div class="qb-title">Queue Mix by Classification</div>
-        <div id="queueTypeBars"></div>
+
+    </div><!-- /pane-all -->
+
+    <!-- Invoices tab -->
+    <div id="pane-invoices" class="tab-pane" data-tab="invoices">
+      <div id="invPane-intel" class="tab-intel"></div>
+      <div class="card">
+        <div class="tab-toolbar">
+          <div class="doc-filters" id="invStatusFilters">
+            <button class="doc-filter active" data-status="all"      onclick="InvoicesTab.setFilter('all')">All</button>
+            <button class="doc-filter"        data-status="pending"  onclick="InvoicesTab.setFilter('pending')">Pending</button>
+            <button class="doc-filter"        data-status="approved" onclick="InvoicesTab.setFilter('approved')">Approved</button>
+            <button class="doc-filter"        data-status="pushed"   onclick="InvoicesTab.setFilter('pushed')">Pushed</button>
+            <button class="doc-filter"        data-status="rejected" onclick="InvoicesTab.setFilter('rejected')">Rejected</button>
+          </div>
+        </div>
+        <div id="invPane-table"></div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="docs-toolbar">
-        <div class="dt-left">
-          <button class="btn btn-primary btn-sm" onclick="openAdd()">+ Add</button>
-          <button class="select-all-btn" id="selectAllBtn" onclick="bulkSelectAll()" style="display:none;">Select all</button>
-        </div>
-        <div class="search-wrap">
-          <span class="search-ico">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
+    <!-- Bank tab -->
+    <div id="pane-bank" class="tab-pane" data-tab="bank">
+      <div id="bankPane-intel" class="tab-intel"></div>
+      <div id="bankSubTabs"></div>
+      <div id="bankContent"></div>
+    </div>
+
+    <!-- Purchase Orders tab -->
+    <div id="pane-po" class="tab-pane" data-tab="po">
+      <div id="poPane-intel" class="tab-intel"></div>
+      <div class="card">
+        <div class="tab-toolbar">
+          <button class="btn btn-primary btn-sm" onclick="POTab.openNew ? POTab.openNew() : console.warn('PO creation handler missing')">+ Create PO</button>
+          <label class="upload-btn" title="Upload PO PDF">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 7.5 12 3m0 0L7.5 7.5M12 3v13.5"/>
             </svg>
-          </span>
-          <input class="search-input" id="searchInput" placeholder="Search…" oninput="onSearch(this.value)">
+            Upload PDF
+            <input type="file" id="poFileInput" accept="application/pdf"
+                  style="display:none" onchange="POTab.handleUpload(this.files)">
+          </label>
+          <select id="poPane-status" class="tab-select" onchange="POTab.load()">
+            <option value="all">All statuses</option>
+            <option value="draft">Draft</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="dispatched">Dispatched</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <select id="poPane-company" class="tab-select" onchange="POTab.load()">
+            <option value="">All companies</option>
+          </select>
         </div>
-        <button class="filter-toggle" id="filterToggle" onclick="toggleFilterPanel()">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"/>
-          </svg>
-          Filters
-        </button>
+        <div id="poPane-table"></div>
       </div>
-      <div class="filter-panel" id="filterPanel">
-        <div class="filter-panel-inner">
-          <div class="fp-field">
-            <label>Doc Type</label>
-            <select id="fpDocType" onchange="onFilterChange()">
-              <option value="">All types</option>
-              <option value="purchase_invoice">Purchase Invoice</option>
-              <option value="freight_invoice">Freight Invoice</option>
-              <option value="bill_of_entry">Bill of Entry</option>
-              <option value="bank_statement">Bank Statement</option>
-              <option value="purchase_order">Purchase Order</option>
-            </select>
-          </div>
-          <div class="fp-field">
-            <label>Added from</label>
-            <input type="date" id="fpDateFrom" onchange="onFilterChange()">
-          </div>
-          <div class="fp-field">
-            <label>Added to</label>
-            <input type="date" id="fpDateTo" onchange="onFilterChange()">
-          </div>
-          <button class="fp-clear" onclick="clearFilters()">Clear</button>
-          <div class="fp-row2">
-            <div class="doc-filters" id="docFilters">
-              <button class="doc-filter active" data-status="all" onclick="setFilter('all')">All</button>
-              <button class="doc-filter" data-status="pending" onclick="setFilter('pending')">Pending</button>
-              <button class="doc-filter" data-status="approved" onclick="setFilter('approved')">Approved</button>
-              <button class="doc-filter" data-status="pushed" onclick="setFilter('pushed')">Pushed</button>
-              <button class="doc-filter" data-status="po" onclick="setFilter('po')">Purchase orders</button>
-              <button class="doc-filter" data-status="rejected" onclick="setFilter('rejected')">Rejected</button>
-            </div>
-            <label class="fp-archived">
-              <input type="checkbox" class="bulk-cb" id="fpDeleted" onchange="onFilterChange()">
-              Show deleted records
-            </label>
-          </div>
-        </div>
-      </div>
-      <div id="bulkBar" style="display:none;align-items:center;gap:12px;margin-bottom:12px;padding:8px 12px;background:color-mix(in srgb, var(--primary) 8%, var(--bg));border:1px solid var(--primary);border-radius:var(--radius);">
-        <span id="bulkCount" style="font-size:12px;font-weight:700;color:var(--text);"></span>
-        <button class="rv-add-btn" style="border-style:solid;border-color:var(--danger);color:var(--danger);" onclick="bulkDelete()">Delete</button> 
-      </div>
-      <div id="docsTable-container"></div>
     </div>
 
     <!-- Add-document overlay (type picker) -->
@@ -807,6 +1012,9 @@
   </div>
 
   <script src="/public/js/app.js"></script>
+  <script src="/public/js/tabs/tab-po.js"></script>
+  <script src="/public/js/tabs/tab-invoices.js"></script>
+  <script src="/public/js/tabs/tab-bank.js"></script>
   <script>
     const DOC_TYPE_LABEL = {
       freight_invoice: 'Freight Invoice', purchase_invoice: 'Purchase Invoice',
@@ -820,8 +1028,8 @@
     let filterDeleted = false;
 
     // PO lifecycle → friendly stage labels. "dispatched" is the terminal
-    // "In system" state; POs never go to Tally.
-    const PO_STAGE = { draft:'Draft', confirmed:'Confirmed', dispatched:'In system', cancelled:'Cancelled' };
+    // "Dispatched" state; POs never go to Tally.
+    const PO_STAGE = { draft:'Draft', confirmed:'Confirmed', dispatched:'Dispatched', cancelled:'Cancelled' };
     const PO_STAGE_CLASS = { draft:'st-pending', confirmed:'st-pushed', dispatched:'st-approved', cancelled:'st-rejected' };
 
     // A unified row is either a doc (from crm_invoices) or a PO (from crm_purchase_orders,
@@ -1046,9 +1254,9 @@
         let rows;
         if (filterDeleted) {
           rows = await api('/api/invoices?status=deleted');
-        } else if (statusFilter === 'po') {
-          const pos = await api('/api/po');
-          rows = pos.map(p => ({ ...p, _po: true }));
+        // } else if (statusFilter === 'po') {
+        //   const pos = await api('/api/po');
+        //   rows = pos.map(p => ({ ...p, _po: true }));
         } else if (statusFilter === 'all') {
           const [docs, pos] = await Promise.all([
             api('/api/invoices'),
@@ -1066,7 +1274,7 @@
 
         docsTable.load(rows);
         updateSelectAll(rows);
-      } catch (e) {}
+      } catch (e) { console.error('loadDocs failed:', e); }
     }
 
     // High-performance real-time aggregate dashboard metrics calculation loop
@@ -1132,7 +1340,7 @@
           <div class="queue-row">
             <div class="qr-label" title="${continuousLabel}">${continuousLabel}</div>
             <div class="qr-track"><div class="qr-fill" style="width: ${pct}%; background: ${TYPE_COLOR_MAP[tKey] || 'var(--text-muted)'};"></div></div>
-            <div class="queue-num" style="width: 25px; text-align: right; font-weight: 700; font-size: 12px; flex-shrink: 0;">${count}</div>
+            <div class="qr-num">${count}</div>
           </div>`;
       }).join('');
 
@@ -1192,25 +1400,13 @@
         </div>`;
     }
 
-    // freight toggle state lives here so both Upload and Manual read it
-    let _addFreight = false;
-
     function chooseType(key) {
       const def = TYPE_DEFS.find(t => t.key === key);
-      _addFreight = false;
       document.getElementById('addTitle').textContent = def.name;
       document.getElementById('addSub').textContent = 'How would you like to add it?';
 
-      const isInvoice = key === 'invoice';
       const isPO = key === 'purchase_order';
-
-      const freightBlock = isInvoice ? `
-        <div class="freight-toggle">
-          <label for="ftSwitch">Freight / logistics invoice
-            <div class="ft-hint">Turn on for MAWB, airline, CFS &amp; handling bills</div>
-          </label>
-          <span class="switch"><input type="checkbox" id="ftSwitch" onchange="_addFreight=this.checked"><span class="track" onclick="document.getElementById('ftSwitch').click()"></span></span>
-        </div>` : '';
+      const freightBlock = '';
 
       const genAction = isPO ? `
         <button class="action-btn" onclick="addGeneratePO()">
@@ -1236,7 +1432,7 @@
 
     // Resolve the picker key + freight toggle into a concrete hint_doc_type.
     function resolveHint(key) {
-      if (key === 'invoice') return _addFreight ? 'freight_invoice' : 'purchase_invoice';
+      if (key === 'invoice') return null; // AI classifies as purchase_invoice or freight_invoice automatically
       return key; // bill_of_entry | bank_statement | purchase_order
     }
 
@@ -1250,12 +1446,15 @@
     function addManual(key) {
       const hint = resolveHint(key);
       closeAdd();
-      if (hint === 'purchase_order') { openPONew(); return; }
+      if (hint === 'purchase_order') { 
+        POTab.openNew ? POTab.openNew() : openManual(hint); 
+        return; 
+      }
       openManual(hint);
     }
     function addGeneratePO() {
       closeAdd();
-      openPONew();
+      if (POTab.openNew) POTab.openNew();
     }
 
     // ===== Upload (single engine: PDF → OpenRouter native) =====
@@ -1311,7 +1510,7 @@
           // A PO upload deletes its placeholder row on success → 404 means "imported".
           if (res.status === 404 && _procIsPO) {
             stopProcessing(); loadDocs();
-            setFilter('po');
+            setTab('po');
             showToast('Purchase order imported — review matched items');
             return;
           }
@@ -1847,326 +2046,283 @@
     function closeReview() { 
       const panel = document.getElementById('reviewPanel');
       panel.classList.remove('open'); 
-      panel.classList.remove('rv-wide-layout'); // Clear wide configurations state on drawer close
-      syncLeftDocumentViewer(null);             // Collapse the left PDF reader along with right drawer
-      _rvInv = null; 
+      panel.classList.remove('rv-wide-layout');
+      syncLeftDocumentViewer(null);
+      if (_openCd) cdClose(_openCd);
+      _rvInv = null; _po = null;
       _poMode = false; 
     }
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReview(); });
 
     // ===================== PURCHASE ORDERS TAB =====================
-    let _poCompanies = [], _poItems = [], _poUser = null, _poMode = false;
+    _poMode = false;
+    let _cdItems = [];    // inventory items cache for PO line dropdown
+    let _openCd  = null;  // id of currently open custom dropdown
 
     function setTab(tab) {
-      document.querySelectorAll('.docs-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-      document.getElementById('pane-documents').classList.toggle('active', tab === 'documents');
-      document.getElementById('pane-po').classList.toggle('active', tab === 'po');
-      if (tab === 'po' && !_poInit) initPO();
+      document.querySelectorAll('.docs-tab-btn')
+        .forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      document.querySelectorAll('.tab-pane')
+        .forEach(p => p.classList.toggle('active', p.dataset.tab === tab));
+      if      (tab === 'all')      loadDocs();
+      else if (tab === 'invoices') InvoicesTab.init();
+      else if (tab === 'bank')     BankTab.init();
+      else if (tab === 'po')       POTab.init();
     }
 
-    const PO_STATUS = { draft:'Draft', confirmed:'Confirmed', dispatched:'Dispatched', cancelled:'Cancelled' };
+    // ===== CUSTOM DROPDOWN =====
+    async function cdEnsureItems() {
+      if (_cdItems.length) return;
+      try { _cdItems = await api('/api/po/items'); } catch(e) {}
+    }
 
-    const poTable = new PaginatedTable({
-      containerId: 'poTable-container',
-      pageSize: 10,
-      titleText: 'Purchase Orders',
-      columns: [
-        { label: 'PO Number', render: p => `<strong style="cursor:pointer;color:var(--primary);" onclick="openPO(${p.id})">${esc(p.po_number)}</strong>` + (p.po_source==='system'?' <span class="po-source-tag">SYS</span>':'') },
-        { label: 'Company', render: p => esc(p.company_name) || '—' },
-        { label: 'Contact', render: p => esc(p.poc_name) || '—' },
-        { label: 'Status', render: p => `<span class="po-badge ${p.status}">${esc(PO_STATUS[p.status]||p.status)}</span>` },
-        { label: 'Order Date', render: p => formatDate(p.order_date) },
-        { label: 'Exp. Dispatch', render: p => formatDate(p.expected_dispatch_date) },
-      ]
+    function cdToggle(id) {
+      const wrap = document.getElementById(id);
+      if (!wrap) return;
+      if (_openCd && _openCd !== id) cdClose(_openCd);
+      const panel = wrap.querySelector('.cd-panel');
+      if (panel.style.display !== 'none') { cdClose(id); return; }
+      panel.innerHTML = `
+        <input class="cd-search" placeholder="Search items…" autocomplete="off"
+               oninput="cdFilter('${id}', this.value)">
+        <div class="cd-list"></div>`;
+      panel.style.display = 'block';
+      wrap.querySelector('.cd-trigger').classList.add('open');
+      _openCd = id;
+      cdFilter(id, '');
+      panel.querySelector('.cd-search').focus();
+    }
+
+    function cdClose(id) {
+      const wrap = document.getElementById(id);
+      if (!wrap) return;
+      const panel = wrap.querySelector('.cd-panel');
+      if (panel) panel.style.display = 'none';
+      const trigger = wrap.querySelector('.cd-trigger');
+      if (trigger) trigger.classList.remove('open');
+      if (_openCd === id) _openCd = null;
+    }
+
+    function cdFilter(id, q) {
+      const wrap = document.getElementById(id);
+      if (!wrap) return;
+      const list = wrap.querySelector('.cd-list');
+      if (!list) return;
+      const current = wrap.dataset.value || '';
+      const filtered = q
+        ? _cdItems.filter(it =>
+            it.item_code.toLowerCase().includes(q.toLowerCase()) ||
+            (it.description || '').toLowerCase().includes(q.toLowerCase()))
+        : _cdItems;
+      list.innerHTML = filtered.slice(0, 60).map(it => `
+        <div class="cd-opt ${it.item_code === current ? 'cd-active' : ''}"
+             data-code="${esc(it.item_code)}"
+             onmousedown="cdSelect('${id}', this.dataset.code)">
+          <span class="cd-code">${esc(it.item_code)}</span>
+          <span class="cd-desc">${esc(it.description || '')}</span>
+        </div>`).join('')
+        || `<div style="padding:10px;font-size:12px;color:var(--text-muted);">No items found</div>`;
+    }
+
+    function cdSelect(id, itemCode) {
+      const wrap = document.getElementById(id);
+      if (!wrap) return;
+      wrap.dataset.value = itemCode;
+      wrap.querySelector('.cd-value').textContent = itemCode || '— Select item —';
+      cdClose(id);
+      const poId   = parseInt(wrap.dataset.poId);
+      const lineId = parseInt(wrap.dataset.lineId);
+      if (poId && lineId) poSaveLineField(poId, lineId, 'item_code', itemCode || null);
+    }
+
+    document.addEventListener('click', e => {
+      if (_openCd && !e.target.closest(`#${_openCd}`)) cdClose(_openCd);
     });
 
-    let _poInit = false;
-    async function initPO() {
-      _poInit = true;
-      _poUser = await fetch('/api/auth/me').then(r => r.json()).catch(() => null);
-      try {
-        [_poCompanies, _poItems] = await Promise.all([ api('/api/po/companies'), api('/api/po/items') ]);
-        document.getElementById('poFCompany').innerHTML +=
-          _poCompanies.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
-      } catch (e) {}
-      loadPOs();
-    }
-
-    async function loadPOs() {
-      const params = new URLSearchParams();
-      const s = document.getElementById('poFStatus').value;
-      const c = document.getElementById('poFCompany').value;
-      if (s !== 'all') params.set('status', s);
-      if (c) params.set('company_id', c);
-      try { poTable.load(await api(`/api/po?${params}`)); } catch (e) {}
-    }
-
-    // ---------- PO panel state ----------
-    let _po = null;          // loaded PO when editing
-    let _poNewLines = [];     // line items when creating
-    let _poEditable = false;
-
-    function poItemOptions(sel) {
-      return `<option value="">— Item —</option>` +
-        _poItems.map(i => `<option value="${esc(i.item_code)}" ${i.item_code===sel?'selected':''}>${esc(i.item_code)} — ${esc(i.description||'')}</option>`).join('');
-    }
-    function poCompanyOptions(sel) {
-      return `<option value="">— Select company —</option>` +
-        _poCompanies.map(c => `<option value="${c.id}" ${c.id==sel?'selected':''}>${esc(c.name)}</option>`).join('');
-    }
-
-    // ----- CREATE -----
-    function openPONew() {
-      _po = null; _poMode = true; _poNewLines = [{ item_code:'', qty:'', price:'' }];
-      const panel = document.getElementById('reviewPanel'); panel.classList.add('open');
-      panel.classList.remove('rv-wide-layout'); // Reset context bounds
-      document.getElementById('rvDocNo').textContent = 'New Purchase Order';
-      const st = document.getElementById('rvStatus'); st.textContent = 'draft'; st.className = 'rv-status pending';
-      document.getElementById('rvBody').innerHTML = `
-        <div class="rv-field"><label>PO Number <span class="req">*</span></label>
-          <input id="po_number" placeholder="e.g. PO-2024-001"></div>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:12px;">
-          <input type="checkbox" id="po_gen" onchange="poToggleGen()"> Auto-generate (SYS-XXX)</label>
-        <div class="rv-field"><label>Company <span class="req">*</span></label>
-          <select id="po_company" onchange="poLoadContacts(this.value)" style="width:100%;font-family:var(--font);font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 10px;">${poCompanyOptions()}</select></div>
-        <div class="rv-field"><label>Contact (optional)</label>
-          <select id="po_contact" style="width:100%;font-family:var(--font);font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 10px;"><option value="">— Select contact —</option></select></div>
-        <div class="rv-grid">
-          <div class="rv-field"><label>Order Date</label><input type="date" id="po_order_date"></div>
-          <div class="rv-field"><label>Expected Dispatch</label><input type="date" id="po_exp_dispatch"></div>
-        </div>
-        <div class="rv-field"><label>Notes</label><input id="po_notes" placeholder="Any remarks"></div>
-        <div class="rv-section-label">Line items</div>
-        <div class="po-item-row head"><span>Item</span><span>Qty</span><span>Unit ₹</span><span></span></div>
-        <div id="poNewLines"></div>
-        <button class="rv-line-add" onclick="poAddLine()">+ Add item</button>
-      `;
-      poRenderNewLines();
-      document.getElementById('rvFoot').innerHTML =
-        `<button class="rv-btn-save" onclick="closeReview()">Cancel</button>
-         <button class="rv-btn-approve" onclick="poCreate()">Create PO</button>`;
-    }
-    function poToggleGen() {
-      const gen = document.getElementById('po_gen').checked;
-      const inp = document.getElementById('po_number');
-      inp.disabled = gen; if (gen) inp.value = '';
-      inp.placeholder = gen ? 'Auto SYS-XXX' : 'e.g. PO-2024-001';
-    }
-    async function poLoadContacts(companyId) {
-      const el = document.getElementById('po_contact');
-      el.innerHTML = '<option value="">— Select contact —</option>';
-      if (!companyId) return;
-      try {
-        const contacts = await api(`/api/clients?company_id=${companyId}`);
-        el.innerHTML += contacts.map(c => `<option value="${c.id}">${esc(c.poc_name)}</option>`).join('');
-      } catch (e) {}
-    }
-    function poRenderNewLines() {
-      document.getElementById('poNewLines').innerHTML = _poNewLines.map((l, i) => `
-        <div class="po-item-row">
-          <select onchange="_poNewLines[${i}].item_code=this.value">${poItemOptions(l.item_code)}</select>
-          <input type="number" min="1" placeholder="Qty" value="${esc(l.qty)}" oninput="_poNewLines[${i}].qty=this.value">
-          <input type="number" step="0.01" placeholder="₹" value="${esc(l.price)}" oninput="_poNewLines[${i}].price=this.value">
-          <button class="x" onclick="poDelLine(${i})">✕</button>
-        </div>`).join('');
-    }
-    function poAddLine() { _poNewLines.push({ item_code:'', qty:'', price:'' }); poRenderNewLines(); }
-    function poDelLine(i) { _poNewLines.splice(i,1); poRenderNewLines(); }
-
-    async function poCreate() {
-      const gen = document.getElementById('po_gen').checked;
-      const company_id = document.getElementById('po_company').value;
-      if (!company_id) return showToast('Select a company', 'error');
-      const po_number = document.getElementById('po_number').value.trim();
-      if (!gen && !po_number) return showToast('Enter a PO number or auto-generate', 'error');
-      const items = _poNewLines
-        .filter(l => l.item_code && parseInt(l.qty) > 0)
-        .map(l => ({ item_code: l.item_code, quantity_ordered: parseInt(l.qty), unit_price: parseFloat(l.price) || null }));
-      try {
-        const r = await api('/api/po', { method: 'POST', body: {
-          generate_number: gen,
-          po_number: gen ? undefined : po_number,
-          company_id: parseInt(company_id),
-          contact_id: parseInt(document.getElementById('po_contact').value) || null,
-          order_date: document.getElementById('po_order_date').value || null,
-          expected_dispatch_date: document.getElementById('po_exp_dispatch').value || null,
-          notes: document.getElementById('po_notes').value.trim() || null,
-          items
-        }});
-        showToast(`${r.po_number} created`);
-        closeReview(); loadPOs();
-      } catch (e) {}
-    }
-
-    // ----- VIEW / EDIT -----
+    // ===== PO PANEL =====
     async function openPO(id) {
       _poMode = true;
-      const panel = document.getElementById('reviewPanel'); panel.classList.add('open');
-      panel.classList.remove('rv-wide-layout'); // Reset context bounds
+      const panel = document.getElementById('reviewPanel');
+      panel.classList.add('open');
+      panel.classList.remove('rv-wide-layout');
       document.getElementById('rvBody').innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Loading…</div>';
       document.getElementById('rvFoot').innerHTML = '';
       try {
-        // Safe lazy-loading guard to populate item selections if accessed straight from main data stream tables
-        if (!_poItems || !_poItems.length) {
-          try { _poItems = await api('/api/po/items'); } catch (itemErr) { _poItems = []; }
-        }
+        await cdEnsureItems();
+        _po = await api(`/api/po/${id}`);
+        const po = _po;
+        const editable = ['draft', 'confirmed'].includes(po.status);
 
-        const po = await api(`/api/po/${id}`);
-        _po = po; _poEditable = ['draft','confirmed'].includes(po.status);
-
-        // Bind the cloud file link to your mobile shortcut and left floating reader
         const mobLink = document.getElementById('mobilePdfLink');
-        if (po && po.file_url) {
-          mobLink.href = po.file_url;
-          mobLink.style.display = 'inline-block';
+        if (po.file_url) {
+          mobLink.href = po.file_url; mobLink.style.display = 'inline-block';
           syncLeftDocumentViewer(po.file_url);
         } else {
-          mobLink.href = '#';
-          mobLink.style.display = 'none';
+          mobLink.href = '#'; mobLink.style.display = 'none';
           syncLeftDocumentViewer(null);
         }
 
-        document.getElementById('rvDocNo').innerHTML = esc(po.po_number) + (po.po_source==='system'?' <span class="po-source-tag">SYS</span>':'');
-        const st = document.getElementById('rvStatus'); st.textContent = po.status;
-        st.className = 'rv-status ' + (po.status==='draft'?'pending':po.status==='confirmed'?'pushed':po.status==='dispatched'?'approved':'rejected');
-        const dis = _poEditable ? '' : 'disabled';
+        document.getElementById('rvDocNo').innerHTML =
+          esc(po.po_number) +
+          (po.po_source === 'upload' ? ' <span class="po-source-tag">IMPORTED</span>' :
+           po.po_source === 'system' ? ' <span class="po-source-tag">SYS</span>' : '');
+
+        const stMap = { draft:'pending', confirmed:'pushed', dispatched:'approved', cancelled:'rejected' };
+        const st = document.getElementById('rvStatus');
+        st.textContent = po.status; st.className = `rv-status ${stMap[po.status] || 'pending'}`;
+
+        const outwardsHtml = (() => {
+          const ow = po.outwards || [];
+          if (!ow.length) return '';
+          // Group by invoice_number
+          const byInv = {};
+          for (const o of ow) {
+            const key = o.invoice_number || '—';
+            if (!byInv[key]) byInv[key] = { invoice_number: key, date: o.outward_date, reels: 0, pcs: 0 };
+            byInv[key].reels++;
+            byInv[key].pcs += o.quantity_shipped || 0;
+          }
+          const groups = Object.values(byInv).sort((a,b) => new Date(b.date) - new Date(a.date));
+          const totalPcs = ow.reduce((s,o) => s + (o.quantity_shipped||0), 0);
+          return `
+            <div class="rv-section-label">Dispatched — ${ow.length} reels · ${totalPcs.toLocaleString('en-IN')} pcs total</div>
+            ${groups.map(g => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;">
+                <div>
+                  <div style="font-size:12px;font-weight:700;">Inv: ${esc(g.invoice_number)}</div>
+                  <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${g.reels} reel${g.reels!==1?'s':''} · ${formatDate(g.date)}</div>
+                </div>
+                <div style="font-size:13px;font-weight:800;color:var(--primary);">${g.pcs.toLocaleString('en-IN')} pcs</div>
+              </div>`).join('')}`;
+        })();
 
         document.getElementById('rvBody').innerHTML = `
-          <div style="color:var(--text-muted);font-size:12px;margin-bottom:14px;">${esc(po.company_name||'')}${po.poc_name?' · '+esc(po.poc_name):''}</div>
-          <div class="rv-grid">
-            <div class="rv-field"><label>Order Date</label><input type="date" id="po_order_date" value="${po.order_date||''}" ${dis}></div>
-            <div class="rv-field"><label>Expected Dispatch</label><input type="date" id="po_exp_dispatch" value="${po.expected_dispatch_date||''}" ${dis}></div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">${esc(po.company_name||'')}${po.poc_name?' · '+esc(po.poc_name):''}</div>
+          <div class="rv-grid" style="margin-bottom:14px;">
+            <div class="rv-field">
+              <label>Order Date</label>
+              <input id="po_order_date" type="date" value="${po.order_date||''}" ${editable?'':'disabled'}>
+            </div>
+            <div class="rv-field">
+              <label>Expected Delivery</label>
+              <input id="po_exp_delivery" type="date" value="${po.expected_dispatch_date||''}" ${editable?'':'disabled'}>
+            </div>
           </div>
-          ${po.dispatch_date ? `<div class="rv-field"><label>Dispatched On</label><input value="${formatDate(po.dispatch_date)}" disabled></div>` : ''}
-          <div class="rv-field"><label>Notes</label><input id="po_notes" value="${esc(po.notes||'')}" ${dis}></div>
-          ${po.items.some(i => !i.item_code) ? `<div class="po-existing-item" style="border-color:var(--warning);margin-bottom:8px;"><div><div class="code" style="color:var(--warning);">${po.items.filter(i=>!i.item_code).length} line(s) need an item</div><div class="desc">Imported lines without a matched item — pick one to finish them.</div></div></div>` : ''}
-          <div class="rv-section-label">Line items (${po.items.length})</div>
-          <div id="poExistingItems">
-            ${po.items.length ? po.items.map(i => poItemRow(po.id, i)).join('') : '<div style="color:var(--text-muted);font-size:12px;">No items yet</div>'}
-          </div>
-          ${_poEditable ? `
-            <div class="po-item-row" style="margin-top:8px;">
-              <select id="po_add_item">${poItemOptions('')}</select>
-              <input type="number" id="po_add_qty" min="1" placeholder="Qty">
-              <input type="number" id="po_add_price" step="0.01" placeholder="₹">
-              <button class="x" style="color:var(--primary);font-size:18px;" onclick="poAddItem(${po.id})">+</button>
-            </div>` : ''}
-          <div class="po-existing-item" style="margin-top:14px;">
-            <div class="desc">Outward dispatches linked</div>
-            <span style="font-size:18px;font-weight:800;">${po.outward_count}</span>
-          </div>
-        `;
+          ${po.notes?`<div style="font-size:11px;padding:8px 10px;background:color-mix(in srgb,var(--warning) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--warning) 25%,var(--border));border-radius:var(--radius);margin-bottom:14px;color:var(--text-muted);">${esc(po.notes)}</div>`:''}
+          <div class="rv-section-label">Line Items (${po.items.length})</div>
+          <div id="poLineItems">${renderPOLines(po)}</div>
+          ${editable?`<button class="rv-line-add" style="margin-top:8px;" onclick="poAddLine(${po.id})">+ Add line item</button>`:''}
+          ${outwardsHtml}
+          ${(() => {
+            const ri = po.relatedInvoices || [];
+            if (!ri.length) return '';
+            const fmt = v => v ? '₹' + Number(v).toLocaleString('en-IN', {minimumFractionDigits:2}) : '—';
+            const typeLabel = { purchase_invoice:'Purchase', freight_invoice:'Freight', bill_of_entry:'BOE', bank_statement:'Bank' };
+            return `<div class="rv-section-label">Invoices — ${esc(po.company_name)} (${ri.length})</div>` +
+              ri.map(inv => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;cursor:pointer;" onclick="closeReview();setTimeout(()=>openReview(${inv.id}),180)">
+                  <div>
+                    <div style="font-size:12px;font-weight:700;color:var(--primary);">${esc(inv.invoice_no || '—')}</div>
+                    <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${esc(typeLabel[inv.doc_type]||inv.doc_type)} · ${formatDate(inv.invoice_date)}</div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="font-size:12px;font-weight:700;">${fmt(inv.net_amount)}</div>
+                    <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${esc(inv.status)}</div>
+                  </div>
+                </div>`).join('');
+          })()}`;
 
         const foot = document.getElementById('rvFoot');
-        const canCancel = _poUser && ['admin','manager'].includes(_poUser.role) && po.status!=='dispatched' && po.status!=='cancelled';
-        let btns = '';
         if (po.status === 'draft') {
-          btns += `<button class="rv-btn-save" onclick="poSave(${po.id})">Save</button>
-                   <button class="rv-btn-confirm" onclick="poConfirm(${po.id})">Confirm PO</button>`;
+          foot.innerHTML = `
+            <button class="rv-btn-save" onclick="poSaveHeader(${po.id})">Save</button>
+            <button class="rv-btn-approve" onclick="poConfirm(${po.id})">Confirm PO</button>`;
         } else if (po.status === 'confirmed') {
-          btns += `<button class="rv-btn-save" onclick="poSave(${po.id})">Save</button>
-                   <button class="rv-btn-dispatch" onclick="poDispatch(${po.id})">Mark Dispatched</button>`;
+          foot.innerHTML = `
+            <button class="rv-btn-save" onclick="poSaveHeader(${po.id})">Save</button>
+            <button class="rv-btn-dispatch" onclick="poDispatch(${po.id})">Mark Dispatched</button>`;
         } else {
-          btns += `<button class="rv-btn-save" onclick="closeReview()">Close (${esc(po.status)})</button>`;
+          foot.innerHTML = `<button class="rv-btn-save" onclick="closeReview()">Close (${esc(po.status)})</button>`;
         }
-        if (canCancel) btns = `<button class="rv-btn-reject" onclick="poCancel(${po.id})">Cancel</button>` + btns;
-        foot.innerHTML = btns;
-      } catch (e) {
-        document.getElementById('rvBody').innerHTML = '<div style="color:var(--danger)">Failed to load.</div>';
+      } catch(e) {
+        console.error('openPO failed:', e);
+        document.getElementById('rvBody').innerHTML = `<div style="color:var(--danger)">Failed to load PO.</div>`;
       }
     }
 
-    // Renders one PO line using a defensive vertical stack to prevent text/dropdown overlaps completely
-    function poItemRow(poId, i) {
-      const qtyPrice = `× ${i.quantity_ordered} ${i.unit_price ? '·  ₹' + i.unit_price : ''}`;
-      const removeBtn = _poEditable
-        ? `<button class="x" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:4px;display:inline-flex;align-items:center;" onclick="poRemoveItem(${poId},${i.id})">✕</button>`
-        : '';
-
-      if (i.item_code) {
-        // Clean Stacked Card for Matched Items
+    function renderPOLines(po) {
+      const editable = ['draft', 'confirmed'].includes(po.status);
+      if (!po.items.length) return '<div style="color:var(--text-muted);font-size:12px;padding:4px 0;">No line items yet.</div>';
+      return po.items.map(item => {
+        const cdId = `cd_po_${item.id}`;
         return `
-          <div class="po-existing-item" style="display: flex; flex-direction: column; gap: 8px; padding: 12px; align-items: stretch; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
-              <div style="min-width: 0;">
-                <div class="code" style="color: var(--primary); font-size: 12px; font-weight: 700;">${esc(i.item_code)}</div>
-                <div class="desc" style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; word-break: break-word;">${esc(i.description || '—')}</div>
+          <div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;margin-bottom:8px;background:var(--bg);">
+            ${!item.item_code?`<div style="font-size:10px;font-weight:700;color:var(--warning);margin-bottom:6px;">⚠ Unassigned${item.notes?' — '+esc(item.notes):''}</div>`:''}
+            <div class="rv-field" style="margin-bottom:8px;">
+              <label>Item</label>
+              ${editable ? `
+                <div id="${cdId}" data-value="${esc(item.item_code||'')}" data-po-id="${po.id}" data-line-id="${item.id}">
+                  <button class="cd-trigger" onclick="cdToggle('${cdId}')">
+                    <span class="cd-value">${esc(item.item_code||'— Select item —')}</span>
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  <div class="cd-panel" style="display:none;"></div>
+                </div>` : `<div style="font-size:13px;font-weight:700;color:var(--primary);">${esc(item.item_code||'—')}</div>`}
+              ${item.description?`<div style="font-size:10px;color:var(--text-muted);margin-top:3px;">${esc(item.description)}</div>`:''}
+            </div>
+            <div class="rv-grid">
+              <div class="rv-field">
+                <label>Qty (NOS)</label>
+                <input type="number" min="1" value="${item.quantity_ordered||''}" style="font-weight:700;"
+                       ${editable?`onchange="poSaveLineField(${po.id},${item.id},'quantity_ordered',this.value)"`:'disabled'}>
               </div>
-              <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
-                <span style="font-size: 12px; font-weight: 700; white-space: nowrap; color: var(--text);">${qtyPrice}</span>
-                ${removeBtn}
+              <div class="rv-field">
+                <label>Unit Price (₹)</label>
+                <input type="number" step="0.01" value="${item.unit_price!=null?item.unit_price:''}" placeholder="—"
+                       ${editable?`onchange="poSaveLineField(${po.id},${item.id},'unit_price',this.value)"`:'disabled'}>
               </div>
             </div>
+            ${editable ? `<div style="margin-top:6px;"><button class="rv-add-btn" style="border-style:solid;border-color:var(--danger);color:var(--danger);width:100%;" onclick="poRemoveLine(${po.id},${item.id})">Remove</button></div>` : ''}
           </div>`;
-      }
-
-      // Secure Stacked Card for Unmatched Items (Isolates Text on Top, Controls on Bottom)
-      const picker = _poEditable
-        ? `<select onchange="poAssignItem(${poId},${i.id},this.value)" style="font-family: var(--font); font-size: 12px; background: var(--surface); border: 1px solid var(--warning); border-radius: var(--radius); color: var(--text); padding: 7px 28px 7px 10px; width: 100%; box-sizing: border-box;">${poItemOptions('')}</select>`
-        : '';
-
-      return `
-        <div class="po-existing-item" style="border: 1px solid var(--warning); border-radius: var(--radius); display: flex; flex-direction: column; gap: 10px; padding: 12px; align-items: stretch; background: color-mix(in srgb, var(--warning) 3%, var(--surface)); margin-bottom: 8px;">
-          <div style="min-width: 0;">
-            <div class="code" style="color: var(--warning); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Needs Item Assignment</div>
-            <div class="desc" style="font-size: 11px; color: var(--text); margin-top: 4px; line-height: 1.4; word-break: break-word; font-weight: 500;">${esc(i.notes || i.description || '—')}</div>
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; border-top: 1px dashed color-mix(in srgb, var(--warning) 20%, var(--border)); padding-top: 8px;">
-            <div style="position: relative; width: 100%;">
-              ${picker}
-            </div>
-            <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
-              <span style="font-size: 12px; font-weight: 700; white-space: nowrap; color: var(--text);">${qtyPrice}</span>
-              ${removeBtn}
-            </div>
-          </div>
-        </div>`;
+      }).join('');
     }
 
-    async function poAssignItem(poId, itemId, itemCode) {
-      if (!itemCode) return;
+    async function poSaveLineField(poId, itemId, field, value) {
       try {
-        await api(`/api/po/${poId}/items/${itemId}`, { method: 'PATCH', body: { item_code: itemCode } });
-        showToast('Item assigned'); openPO(poId);
-      } catch (e) {}
+        await api(`/api/po/${poId}/items/${itemId}`, { method:'PATCH', body:{ [field]: value||null } });
+      } catch(e) { showToast('Save failed: '+(e.message||''), 'error'); }
     }
 
-    async function poSave(id) {
+    async function poRemoveLine(poId, itemId) {
+      try { await api(`/api/po/${poId}/items/${itemId}`, { method:'DELETE' }); openPO(poId); }
+      catch(e) { showToast('Remove failed', 'error'); }
+    }
+
+    async function poAddLine(poId) {
+      try { await api(`/api/po/${poId}/items`, { method:'POST', body:{ quantity_ordered:1 } }); openPO(poId); }
+      catch(e) { showToast('Failed to add line', 'error'); }
+    }
+
+    async function poSaveHeader(poId) {
       try {
-        await api(`/api/po/${id}`, { method: 'PATCH', body: {
-          order_date: document.getElementById('po_order_date').value || null,
-          expected_dispatch_date: document.getElementById('po_exp_dispatch').value || null,
-          notes: document.getElementById('po_notes').value.trim() || null
+        await api(`/api/po/${poId}`, { method:'PATCH', body:{
+          order_date: document.getElementById('po_order_date')?.value || null,
+          expected_dispatch_date: document.getElementById('po_exp_delivery')?.value || null,
         }});
-        showToast('Saved'); openPO(id); loadPOs();
-      } catch (e) {}
+        showToast('Saved'); loadDocs();
+      } catch(e) { showToast('Save failed', 'error'); }
     }
-    async function poAddItem(id) {
-      const item_code = document.getElementById('po_add_item').value;
-      const qty = parseInt(document.getElementById('po_add_qty').value);
-      if (!item_code || !qty) return showToast('Select item and quantity', 'error');
-      try {
-        await api(`/api/po/${id}/items`, { method: 'POST', body: {
-          item_code, quantity_ordered: qty,
-          unit_price: parseFloat(document.getElementById('po_add_price').value) || null
-        }});
-        showToast('Item added'); openPO(id);
-      } catch (e) {}
+
+    async function poConfirm(poId) {
+      try { await api(`/api/po/${poId}/confirm`, { method:'POST' }); showToast('PO confirmed'); openPO(poId); loadDocs(); }
+      catch(e) { showToast(e.message||'Failed to confirm', 'error'); }
     }
-    async function poRemoveItem(id, itemId) {
-      try { await api(`/api/po/${id}/items/${itemId}`, { method: 'DELETE' }); showToast('Item removed'); openPO(id); } catch (e) {}
-    }
-    async function poConfirm(id) {
-      try { await api(`/api/po/${id}/confirm`, { method: 'POST' }); showToast('PO confirmed'); openPO(id); loadPOs(); } catch (e) {}
-    }
-    async function poDispatch(id) {
-      const date = document.getElementById('po_exp_dispatch').value;
-      if (!date) return showToast('Set an expected dispatch date first, or enter today', 'error');
-      try { await api(`/api/po/${id}/dispatch`, { method: 'POST', body: { dispatch_date: date } }); showToast('PO dispatched'); closeReview(); loadPOs(); } catch (e) {}
-    }
-    async function poCancel(id) {
-      if (!confirm('Cancel this PO? This cannot be undone.')) return;
-      try { await api(`/api/po/${id}/cancel`, { method: 'POST' }); showToast('PO cancelled'); closeReview(); loadPOs(); } catch (e) {}
+
+    async function poDispatch(poId) {
+      const date = document.getElementById('po_exp_delivery')?.value;
+      if (!date) return showToast('Set a delivery date first', 'error');
+      try { await api(`/api/po/${poId}/dispatch`, { method:'POST', body:{ dispatch_date:date } }); showToast('PO dispatched'); openPO(poId); loadDocs(); }
+      catch(e) { showToast(e.message||'Failed to dispatch', 'error'); }
     }
 
     // Asynchronous background uploader targeting specific transaction spreadsheet indices safely

@@ -919,8 +919,45 @@ router.put('/:id', async (req, res) => {
   if (typeof merged.line_items === 'string') {
     try { merged.line_items = JSON.parse(merged.line_items); } catch { merged.line_items = []; }
   }
+  // fields.tally_xml = buildTallyXML(merged);
+  // if (typeof fields.line_items !== 'string') fields.line_items = JSON.stringify(fields.line_items || []);
+  // const sets   = Object.keys(fields).map(k => `${k} = ?`).join(', ');
+
   fields.tally_xml = buildTallyXML(merged);
-  if (typeof fields.line_items !== 'string') fields.line_items = JSON.stringify(fields.line_items || []);
+  
+  // Deduplicate transaction rows for Bank Statements dynamically before saving
+  if (typeof fields.line_items !== 'string' && fields.line_items) {
+    if (merged.doc_type === 'bank_statement') {
+      const uniqueLines = [];
+      const seenSignatures = new Set();
+      
+      for (const row of fields.line_items) {
+        const fingerprint = `${row.date || ''}_${(row.description || '').trim()}_${row.amount || 0}`;
+        if (!seenSignatures.has(fingerprint)) {
+          seenSignatures.add(fingerprint);
+          uniqueLines.push(row);
+        }
+      }
+      fields.line_items = uniqueLines;
+    }
+    fields.line_items = JSON.stringify(fields.line_items || []);
+  } else if (typeof fields.line_items === 'string' && merged.doc_type === 'bank_statement') {
+    // Handling case if it arrives pre-stringified
+    try {
+      const parsedLines = JSON.parse(fields.line_items);
+      const uniqueLines = [];
+      const seenSignatures = new Set();
+      for (const row of parsedLines) {
+        const fingerprint = `${row.date || ''}_${(row.description || '').trim()}_${row.amount || 0}`;
+        if (!seenSignatures.has(fingerprint)) {
+          seenSignatures.add(fingerprint);
+          uniqueLines.push(row);
+        }
+      }
+      fields.line_items = JSON.stringify(uniqueLines);
+    } catch(e) {}
+  }
+  
   const sets   = Object.keys(fields).map(k => `${k} = ?`).join(', ');
   const values = [...Object.values(fields), req.params.id];
   await execute(`UPDATE crm_invoices SET ${sets} WHERE id = ?`, values);
@@ -953,6 +990,25 @@ router.post('/:id/reject', async (req, res) => {
       [nowIST(), inv.task_id]);
   }
   res.json({ success: true });
+});
+
+// DELETE /api/invoices/attachment — Wipe standalone transaction line attachment from R2 bucket
+router.delete('/attachment', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'No attachment URL provided' });
+  try {
+    // Isolate the unique cloud hash key filename from the public storage URL path string
+    const key = url.split('/').pop();
+    
+    await r2Client.send(new DeleteObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: key
+    }));
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to purge attachment from R2:', err.message);
+    res.status(500).json({ error: 'Failed to delete file from cloud storage' });
+  }
 });
 
 router.delete('/:id', async (req, res) => {
@@ -1175,25 +1231,6 @@ router.post('/attachment', upload.single('file'), async (req, res) => {
   } catch (err) {
     console.error('Line attachment streaming crashed:', err.message);
     res.status(500).json({ error: 'Failed to preserve attachment: ' + err.message });
-  }
-});
-
-// DELETE /api/invoices/attachment — Wipe standalone transaction line attachment from R2 bucket
-router.delete('/attachment', async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ error: 'No attachment URL provided' });
-  try {
-    // Isolate the unique cloud hash key filename from the public storage URL path string
-    const key = url.split('/').pop();
-    
-    await r2Client.send(new DeleteObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: key
-    }));
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Failed to purge attachment from R2:', err.message);
-    res.status(500).json({ error: 'Failed to delete file from cloud storage' });
   }
 });
 

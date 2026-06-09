@@ -54,6 +54,23 @@ function matchItem(description, items, normIndex) {
   return { item_code: null, matched: false };
 }
 
+const COMPANY_STOPWORDS = new Set(['pvt', 'ltd', 'private', 'limited', 'inc', 'llp', 'llc', 'the', 'and', 'of', 'co']);
+
+function companyTokens(s) {
+  return String(s || '').toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+    .split(' ').filter(t => t.length > 1 && !COMPANY_STOPWORDS.has(t));
+}
+
+function companyMatchScore(a, b) {
+  const ta = new Set(companyTokens(a));
+  const tb = new Set(companyTokens(b));
+  if (!ta.size || !tb.size) return 0;
+  let shared = 0;
+  for (const t of ta) if (tb.has(t)) shared++;
+  return shared / Math.min(ta.size, tb.size);
+}
+
 // ── Shared PO insert core ─────────────────────────────────────────────
 // Used by both the HTTP create route and the extraction import path.
 // `lines` are already-resolved { item_code, quantity_ordered, unit_price, notes }.
@@ -74,10 +91,10 @@ async function insertPO({ po_number, po_source, company_id, contact_id, order_da
       if (!line.quantity_ordered) continue;
       await execute(
         `INSERT INTO crm_po_items
-           (po_id, item_code, quantity_ordered, unit_price, notes)
-         VALUES (?, ?, ?, ?, ?)`,
-        [poId, line.item_code || '', line.quantity_ordered,
-         line.unit_price || null, line.notes || null]
+           (po_id, item_code, quantity_ordered, unit_price, notes, delivery_date)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [poId, line.item_code || null, line.quantity_ordered,
+         line.unit_price || null, line.notes || null, line.delivery_date || null]
       );
     }
   }
@@ -145,8 +162,7 @@ async function createPOFromExtraction(inv, createdBy, file_url = null) {
       item_code,
       quantity_ordered: qty,
       unit_price: (li.rate != null && li.rate !== '') ? parseFloat(li.rate) : null,
-      // Unmatched lines preserve their source description here so the panel
-      // can render them and the reviewer can assign a real item_code.
+      delivery_date: li.delivery_date || null,
       notes: matched ? null : (li.description || '').trim() || null,
     };
   });
@@ -280,7 +296,32 @@ router.get('/:id', async (req, res) => {
     [req.params.id]
   );
 
-  res.json({ ...po, items, outward_count: outwardRow?.n || 0 });
+  const outwards = await queryAll(
+    `SELECT id, reel_number, invoice_number, quantity_shipped, outward_date, customer_name
+     FROM outwards WHERE po_id = ? ORDER BY outward_date DESC`,
+    [req.params.id]
+  );
+
+  let relatedInvoices = [];
+  if (po.company_name) {
+    const tokens = companyTokens(po.company_name).filter(t => t.length > 2);
+    if (tokens.length) {
+      const candidates = await queryAll(`
+        SELECT id, invoice_no, invoice_date, doc_type, net_amount, status, party_name
+        FROM crm_invoices
+        WHERE deleted_at IS NULL
+          AND (${tokens.map(() => 'lower(party_name) LIKE ?').join(' OR ')})
+        ORDER BY invoice_date DESC
+        LIMIT 100
+      `, tokens.map(t => `%${t}%`));
+      relatedInvoices = candidates
+        .filter(inv => companyMatchScore(po.company_name, inv.party_name) >= 0.5)
+        .slice(0, 20)
+        .map(({ party_name, ...rest }) => rest);
+    }
+  }
+
+  res.json({ ...po, items, outward_count: outwardRow?.n || 0, outwards, relatedInvoices });
 });
 
 // UPDATE — only allowed on draft or confirmed
@@ -307,9 +348,9 @@ router.patch('/:id', async (req, res) => {
 
 // ADD LINE ITEM
 router.post('/:id/items', async (req, res) => {
-  const { item_code, quantity_ordered, unit_price, notes } = req.body;
-  if (!item_code || !quantity_ordered)
-    return res.status(400).json({ error: 'item_code and quantity_ordered required' });
+  const { item_code, quantity_ordered, unit_price, notes, delivery_date } = req.body;
+  if (!quantity_ordered)
+    return res.status(400).json({ error: 'quantity_ordered required' });
 
   const po = await queryOne(
     'SELECT status FROM crm_purchase_orders WHERE id = ?',
@@ -321,9 +362,9 @@ router.post('/:id/items', async (req, res) => {
 
   const r = await execute(
     `INSERT INTO crm_po_items
-       (po_id, item_code, quantity_ordered, unit_price, notes)
-     VALUES (?, ?, ?, ?, ?)`,
-    [req.params.id, item_code, quantity_ordered, unit_price || null, notes || null]
+       (po_id, item_code, quantity_ordered, unit_price, notes, delivery_date)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [req.params.id, item_code || null, quantity_ordered, unit_price || null, notes || null, delivery_date || null]
   );
   res.json({ success: true, id: Number(r.lastId) });
 });
@@ -339,7 +380,7 @@ router.patch('/:id/items/:itemId', async (req, res) => {
   if (['dispatched', 'cancelled'].includes(po.status))
     return res.status(400).json({ error: `Cannot modify a ${po.status} PO` });
 
-  const allowed = ['item_code', 'quantity_ordered', 'unit_price', 'notes'];
+  const allowed = ['item_code', 'quantity_ordered', 'unit_price', 'notes', 'delivery_date'];
   const fields = {};
   for (const k of allowed) if (req.body[k] !== undefined) fields[k] = req.body[k];
   if (!Object.keys(fields).length)
