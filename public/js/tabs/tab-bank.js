@@ -20,7 +20,7 @@ let _bankTxSearch   = '';
 const _fmtMoney = v =>
   '₹' + Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const _fmtDate = s => {
+const _bankFmtDate = s => {
   if (!s) return '—';
   const d = new Date(s);
   return isNaN(d.getTime()) ? s : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });

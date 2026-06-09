@@ -191,7 +191,9 @@ async function createPOFromExtraction(inv, createdBy, file_url = null) {
 router.get('/', async (req, res) => {
   const { status, company_id } = req.query;
   let sql = `
-    SELECT p.*, co.name AS company_name, c.poc_name
+    SELECT p.*, co.name AS company_name, c.poc_name,
+           (SELECT COUNT(*) FROM crm_po_items WHERE po_id = p.id) AS item_count,
+           (SELECT COUNT(*) FROM outwards WHERE po_id = p.id) AS outward_count
     FROM crm_purchase_orders p
     LEFT JOIN crm_companies co ON p.company_id = co.id
     LEFT JOIN crm_contacts c ON p.contact_id = c.id
