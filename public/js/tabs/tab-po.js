@@ -94,30 +94,46 @@ function cdFilter(id, q) {
   const list = wrap.querySelector('.cd-list');
   if (!list) return;
   const current = wrap.dataset.value || '';
+  const items = wrap._cdItems !== undefined ? wrap._cdItems : _cdItems;
+  const ro = wrap._cdRenderOpt || (it => ({ value: it.item_code, primary: it.item_code, secondary: it.description || '' }));
   const filtered = q
-    ? _cdItems.filter(it =>
-        it.item_code.toLowerCase().includes(q.toLowerCase()) ||
-        (it.description||'').toLowerCase().includes(q.toLowerCase()))
-    : _cdItems;
-  list.innerHTML = filtered.slice(0, 60).map(it => `
-    <div class="cd-opt ${it.item_code === current ? 'cd-active' : ''}"
-         data-code="${esc(it.item_code)}"
-         onmousedown="cdSelect('${id}', this.dataset.code)">
-      <span class="cd-code">${esc(it.item_code)}</span>
-      <span class="cd-desc">${esc(it.description||'')}</span>
-    </div>`).join('')
-    || `<div style="padding:10px;font-size:12px;color:var(--text-muted);">No items found</div>`;
+    ? items.filter(it => { const o = ro(it); return (o.primary||'').toLowerCase().includes(q.toLowerCase()) || (o.secondary||'').toLowerCase().includes(q.toLowerCase()); })
+    : items;
+  list.innerHTML = filtered.slice(0, 60).map(it => {
+    const o = ro(it);
+    return `
+      <div class="cd-opt ${String(o.value ?? '') === current ? 'cd-active' : ''}"
+           data-code="${esc(String(o.value ?? ''))}"
+           onmousedown="cdSelect('${id}', this.dataset.code)">
+        <span class="cd-code">${esc(o.primary || '')}</span>
+        ${o.secondary ? `<span class="cd-desc">${esc(o.secondary)}</span>` : ''}
+      </div>`;
+  }).join('')
+  || `<div style="padding:10px;font-size:12px;color:var(--text-muted);">No items found</div>`;
 }
 
-function cdSelect(id, itemCode) {
+function cdSelect(id, value) {
   const wrap = document.getElementById(id);
   if (!wrap) return;
-  wrap.dataset.value = itemCode;
-  wrap.querySelector('.cd-value').textContent = itemCode || '— Select item —';
+  wrap.dataset.value = value;
+  const items = wrap._cdItems !== undefined ? wrap._cdItems : _cdItems;
+  const ro = wrap._cdRenderOpt || (it => ({ value: it.item_code, primary: it.item_code, secondary: it.description || '' }));
+  const found = items.find(it => String(ro(it).value ?? '') === String(value ?? ''));
+  wrap.querySelector('.cd-value').textContent = found ? ro(found).primary : (value || wrap.dataset.placeholder || '— Select item —');
   cdClose(id);
+  if (wrap._cdOnSelect) { wrap._cdOnSelect(value, found); return; }
   const poId   = parseInt(wrap.dataset.poId);
   const lineId = parseInt(wrap.dataset.lineId);
-  if (poId && lineId) poSaveLineField(poId, lineId, 'item_code', itemCode || null);
+  if (poId && lineId) poSaveLineField(poId, lineId, 'item_code', value || null);
+}
+
+function cdMount(id, items, renderOpt, onSelect, placeholder = '— Select —') {
+  const wrap = document.getElementById(id);
+  if (!wrap) return;
+  wrap._cdItems     = items;
+  wrap._cdRenderOpt = renderOpt;
+  wrap._cdOnSelect  = onSelect;
+  wrap.dataset.placeholder = placeholder;
 }
 
 document.addEventListener('click', e => {
@@ -518,7 +534,9 @@ async function _poQuickDispatch(id) {
 }
 
 /* ── CREATE panel ──────────────────────────────────────────────── */
-function openPONew() {
+async function openPONew() {
+  await cdEnsureItems();
+  if (!_poCompanies.length) try { _poCompanies = await api('/api/po/companies'); } catch(e) {}
   _po = null; window._poMode = true;
   _poNewLines = [{ item_code: '', qty: '', price: '' }];
   const panel = document.getElementById('reviewPanel');
@@ -540,17 +558,23 @@ function openPONew() {
     </label>
     <div class="rv-field">
       <label>Company <span class="req">*</span></label>
-      <select id="po_company" onchange="poLoadContacts(this.value)"
-        style="width:100%;font-family:var(--font);font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 10px;">
-        ${poCompanyOptions()}
-      </select>
+      <div id="cd_new_company" data-value="">
+        <button class="cd-trigger" onclick="cdToggle('cd_new_company')">
+          <span class="cd-value">— Select company —</span>
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="cd-panel" style="display:none;"></div>
+      </div>
     </div>
     <div class="rv-field">
       <label>Contact (optional)</label>
-      <select id="po_contact"
-        style="width:100%;font-family:var(--font);font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 10px;">
-        <option value="">— Select contact —</option>
-      </select>
+      <div id="cd_new_contact" data-value="">
+        <button class="cd-trigger" onclick="cdToggle('cd_new_contact')">
+          <span class="cd-value">— Select contact —</span>
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="cd-panel" style="display:none;"></div>
+      </div>
     </div>
     <div class="rv-grid">
       <div class="rv-field"><label>Order Date</label><input type="date" id="po_order_date"></div>
@@ -563,6 +587,24 @@ function openPONew() {
     <button class="rv-line-add" onclick="poNewLineAdd()">+ Add item</button>`;
 
   _poRenderNewLines();
+  cdMount('cd_new_company', _poCompanies,
+    c => ({ value: String(c.id), primary: c.name, secondary: '' }),
+    async (val) => {
+      const cw = document.getElementById('cd_new_contact');
+      if (!cw) return;
+      cw._cdItems = []; cw.dataset.value = '';
+      cw.querySelector('.cd-value').textContent = '— Select contact —';
+      if (!val) return;
+      try {
+        const contacts = await api(`/api/clients?company_id=${val}`);
+        cdMount('cd_new_contact', contacts,
+          c => ({ value: String(c.id), primary: c.poc_name, secondary: c.designation || '' }),
+          null, '— Select contact —');
+      } catch(e) {}
+    },
+    '— Select company —'
+  );
+  cdMount('cd_new_contact', [], null, null, '— Select contact —');
   document.getElementById('rvFoot').innerHTML =
     `<button class="rv-btn-save" onclick="closeReview()">Cancel</button>
      <button class="rv-btn-approve" onclick="poCreate()">Create PO</button>`;
@@ -589,11 +631,22 @@ async function poLoadContacts(companyId) {
 function _poRenderNewLines() {
   document.getElementById('poNewLines').innerHTML = _poNewLines.map((l, i) => `
     <div class="po-item-row">
-      <select onchange="_poNewLines[${i}].item_code=this.value">${poItemOptions(l.item_code)}</select>
+      <div id="cd_nl_${i}" data-value="${esc(l.item_code||'')}" style="position:relative;">
+        <button class="cd-trigger" onclick="cdToggle('cd_nl_${i}')">
+          <span class="cd-value">${esc(l.item_code||'— Item —')}</span>
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="cd-panel" style="display:none;position:absolute;left:0;right:0;z-index:200;top:100%;"></div>
+      </div>
       <input type="number" min="1" placeholder="Qty" value="${esc(l.qty)}" oninput="_poNewLines[${i}].qty=this.value">
       <input type="number" step="0.01" placeholder="₹" value="${esc(l.price)}" oninput="_poNewLines[${i}].price=this.value">
       <button class="x" onclick="poNewLineDel(${i})">✕</button>
     </div>`).join('');
+  _poNewLines.forEach((l, i) => cdMount(`cd_nl_${i}`, _cdItems,
+    it => ({ value: it.item_code, primary: it.item_code, secondary: it.description || '' }),
+    val => { _poNewLines[i].item_code = val; },
+    '— Item —'
+  ));
 }
 
 function poNewLineAdd() { _poNewLines.push({ item_code:'', qty:'', price:'' }); _poRenderNewLines(); }
@@ -601,7 +654,7 @@ function poNewLineDel(i) { _poNewLines.splice(i, 1); _poRenderNewLines(); }
 
 async function poCreate() {
   const gen        = document.getElementById('po_gen').checked;
-  const company_id = document.getElementById('po_company').value;
+  const company_id = document.getElementById('cd_new_company').dataset.value;
   if (!company_id) return showToast('Select a company', 'error');
   const po_number  = document.getElementById('po_number').value.trim();
   if (!gen && !po_number) return showToast('Enter a PO number or auto-generate', 'error');
@@ -613,7 +666,7 @@ async function poCreate() {
       generate_number: gen,
       po_number: gen ? undefined : po_number,
       company_id: parseInt(company_id),
-      contact_id: parseInt(document.getElementById('po_contact').value) || null,
+      contact_id: parseInt(document.getElementById('cd_new_contact').dataset.value) || null,
       order_date: document.getElementById('po_order_date').value || null,
       expected_dispatch_date: document.getElementById('po_exp_dispatch').value || null,
       notes: document.getElementById('po_notes').value.trim() || null,
@@ -842,7 +895,8 @@ function poCompanyOptions(sel) {
 /* ── Table row actions ─────────────────────────────────────────── */
 async function _poDeleteRow(id) {
   if (!confirm('Delete this Purchase Order permanently?')) return;
-  try { await api(`/api/po/${id}`, { method:'DELETE' }); showToast('Deleted'); _loadPOs(); } catch(e) {}
+  try { await api(`/api/po/${id}`, { method:'DELETE' }); showToast('Deleted'); _loadPOs(); }
+  catch(e) { showToast(e.message || 'Delete failed — you may not have permission', 'error'); }
 }
 
 async function _handlePOUpload(files) {
@@ -859,7 +913,7 @@ async function _handlePOUpload(files) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed');
     startProcessing(data.invoiceId, file.name, true);
-  } catch(e) { showToast(e.message || 'Upload failed', 'error'); }
+  } catch(e) { console.error('[PO Upload] Upload request failed:', e); showToast(e.message || 'Upload failed', 'error'); }
 }
 
 /* ── Public namespace ──────────────────────────────────────────── */

@@ -1161,7 +1161,7 @@
           showToast(r.soft ? 'Archived (was in Tally)' : 'Deleted');
         }
         loadDocs();
-      } catch (e) {}
+      } catch (e) { showToast(e.message || 'Delete failed — you may not have permission', 'error'); }
     }
 
     function setFilter(s) {
@@ -1515,7 +1515,7 @@
             return;
           }
           s = await res.json();
-        } catch (e) { return; } // transient network blip — keep polling
+        } catch (e) { console.warn('[Doc Processing] Poll error:', e); return; }
 
         if (s.status === 'reading') {
           if (elapsed >= 180) { // safety: shouldn't outlast server reaper
@@ -1528,6 +1528,7 @@
         stopProcessing();
         loadDocs();
         if (s.status === 'extract_failed') {
+          console.error('[Doc Processing] Extraction failed — full status payload:', JSON.stringify(s, null, 2));
           showToast(`Couldn't read it${s.extract_error ? ' — ' + s.extract_error : ''}`, 'error');
         } else if (!_procDismissed) {
           showToast('Document read — review it before approving');
@@ -2107,30 +2108,46 @@
       const list = wrap.querySelector('.cd-list');
       if (!list) return;
       const current = wrap.dataset.value || '';
+      const items = wrap._cdItems !== undefined ? wrap._cdItems : _cdItems;
+      const ro = wrap._cdRenderOpt || (it => ({ value: it.item_code, primary: it.item_code, secondary: it.description || '' }));
       const filtered = q
-        ? _cdItems.filter(it =>
-            it.item_code.toLowerCase().includes(q.toLowerCase()) ||
-            (it.description || '').toLowerCase().includes(q.toLowerCase()))
-        : _cdItems;
-      list.innerHTML = filtered.slice(0, 60).map(it => `
-        <div class="cd-opt ${it.item_code === current ? 'cd-active' : ''}"
-             data-code="${esc(it.item_code)}"
-             onmousedown="cdSelect('${id}', this.dataset.code)">
-          <span class="cd-code">${esc(it.item_code)}</span>
-          <span class="cd-desc">${esc(it.description || '')}</span>
-        </div>`).join('')
-        || `<div style="padding:10px;font-size:12px;color:var(--text-muted);">No items found</div>`;
+        ? items.filter(it => { const o = ro(it); return (o.primary||'').toLowerCase().includes(q.toLowerCase()) || (o.secondary||'').toLowerCase().includes(q.toLowerCase()); })
+        : items;
+      list.innerHTML = filtered.slice(0, 60).map(it => {
+        const o = ro(it);
+        return `
+          <div class="cd-opt ${String(o.value ?? '') === current ? 'cd-active' : ''}"
+               data-code="${esc(String(o.value ?? ''))}"
+               onmousedown="cdSelect('${id}', this.dataset.code)">
+            <span class="cd-code">${esc(o.primary || '')}</span>
+            ${o.secondary ? `<span class="cd-desc">${esc(o.secondary)}</span>` : ''}
+          </div>`;
+      }).join('')
+      || `<div style="padding:10px;font-size:12px;color:var(--text-muted);">No items found</div>`;
     }
 
-    function cdSelect(id, itemCode) {
+    function cdSelect(id, value) {
       const wrap = document.getElementById(id);
       if (!wrap) return;
-      wrap.dataset.value = itemCode;
-      wrap.querySelector('.cd-value').textContent = itemCode || '— Select item —';
+      wrap.dataset.value = value;
+      const items = wrap._cdItems !== undefined ? wrap._cdItems : _cdItems;
+      const ro = wrap._cdRenderOpt || (it => ({ value: it.item_code, primary: it.item_code, secondary: it.description || '' }));
+      const found = items.find(it => String(ro(it).value ?? '') === String(value ?? ''));
+      wrap.querySelector('.cd-value').textContent = found ? ro(found).primary : (value || wrap.dataset.placeholder || '— Select item —');
       cdClose(id);
+      if (wrap._cdOnSelect) { wrap._cdOnSelect(value, found); return; }
       const poId   = parseInt(wrap.dataset.poId);
       const lineId = parseInt(wrap.dataset.lineId);
-      if (poId && lineId) poSaveLineField(poId, lineId, 'item_code', itemCode || null);
+      if (poId && lineId) poSaveLineField(poId, lineId, 'item_code', value || null);
+    }
+
+    function cdMount(id, items, renderOpt, onSelect, placeholder = '— Select —') {
+      const wrap = document.getElementById(id);
+      if (!wrap) return;
+      wrap._cdItems     = items;
+      wrap._cdRenderOpt = renderOpt;
+      wrap._cdOnSelect  = onSelect;
+      wrap.dataset.placeholder = placeholder;
     }
 
     document.addEventListener('click', e => {
@@ -2194,6 +2211,12 @@
               </div>`).join('')}`;
         })();
 
+        const _poNotesHtml = (() => {
+          if (!po.notes) return '';
+          const isDup = po.notes.includes('Duplicate PO number');
+          const col = isDup ? 'var(--danger)' : 'var(--warning)';
+          return `<div style="font-size:11px;padding:8px 10px;background:color-mix(in srgb,${col} 8%,var(--surface));border:1px solid color-mix(in srgb,${col} 25%,var(--border));border-radius:var(--radius);margin-bottom:14px;color:${isDup ? col : 'var(--text-muted)'};">${isDup ? '⚠ Duplicate import — ' : ''}${esc(po.notes)}</div>`;
+        })();
         document.getElementById('rvBody').innerHTML = `
           <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">${esc(po.company_name||'')}${po.poc_name?' · '+esc(po.poc_name):''}</div>
           <div class="rv-grid" style="margin-bottom:14px;">
@@ -2206,7 +2229,7 @@
               <input id="po_exp_delivery" type="date" value="${po.expected_dispatch_date||''}" ${editable?'':'disabled'}>
             </div>
           </div>
-          ${po.notes?`<div style="font-size:11px;padding:8px 10px;background:color-mix(in srgb,var(--warning) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--warning) 25%,var(--border));border-radius:var(--radius);margin-bottom:14px;color:var(--text-muted);">${esc(po.notes)}</div>`:''}
+          ${_poNotesHtml}
           <div class="rv-section-label">Line Items (${po.items.length})</div>
           <div id="poLineItems">${renderPOLines(po)}</div>
           ${editable?`<button class="rv-line-add" style="margin-top:8px;" onclick="poAddLine(${po.id})">+ Add line item</button>`:''}

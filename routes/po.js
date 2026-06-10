@@ -5,6 +5,15 @@ const router = express.Router();
 const { queryAll, queryOne, execute, nowIST } = require('../db/schema');
 
 async function nextSysPONumber() {
+  // Sync counter above the highest existing SYS-N in case of drift from failed deletes
+  const maxRow = await queryOne(
+    "SELECT MAX(CAST(SUBSTR(po_number, 5) AS INTEGER)) AS m FROM crm_purchase_orders WHERE po_number LIKE 'SYS-%'"
+  );
+  const maxExisting = parseInt(maxRow?.m) || 0;
+  await execute(
+    "UPDATE counters SET value = ? WHERE name = 'po_sys' AND value < ?",
+    [maxExisting, maxExisting]
+  );
   await execute("UPDATE counters SET value = value + 1 WHERE name = 'po_sys'");
   const row = await queryOne("SELECT value FROM counters WHERE name = 'po_sys'");
   return `SYS-${row.value}`;
@@ -86,17 +95,24 @@ async function insertPO({ po_number, po_source, company_id, contact_id, order_da
      notes || null, created_by, file_url || null, nowIST(), nowIST()]
   );
   const poId = Number(r.lastId);
-  if (Array.isArray(lines)) {
-    for (const line of lines) {
-      if (!line.quantity_ordered) continue;
-      await execute(
-        `INSERT INTO crm_po_items
-           (po_id, item_code, quantity_ordered, unit_price, notes, delivery_date)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [poId, line.item_code || null, line.quantity_ordered,
-         line.unit_price || null, line.notes || null, line.delivery_date || null]
-      );
+  try {
+    if (Array.isArray(lines)) {
+      for (const line of lines) {
+        if (!line.quantity_ordered) continue;
+        await execute(
+          `INSERT INTO crm_po_items
+             (po_id, item_code, quantity_ordered, unit_price, notes)
+           VALUES (?, ?, ?, ?, ?)`,
+          [poId, line.item_code || null, line.quantity_ordered,
+           line.unit_price || null, line.notes || null]
+        );
+      }
     }
+  } catch (err) {
+    // Items insert failed — roll back the PO header to prevent orphaned records
+    await execute('DELETE FROM crm_po_items WHERE po_id = ?', [poId]).catch(() => {});
+    await execute('DELETE FROM crm_purchase_orders WHERE id = ?', [poId]).catch(() => {});
+    throw err;
   }
   return poId;
 }
@@ -108,7 +124,7 @@ async function insertPO({ po_number, po_source, company_id, contact_id, order_da
 // Resolves party_name → company_id where an exact company name match exists;
 // otherwise stashes the supplier name in the PO notes for the reviewer.
 async function createPOFromExtraction(inv, createdBy, file_url = null) {
-  const po_number = (inv.invoice_no && inv.invoice_no.trim())
+  let po_number = (inv.invoice_no && inv.invoice_no.trim())
     ? inv.invoice_no.trim()
     : await nextSysPONumber();
   const po_source = 'upload';
@@ -162,7 +178,6 @@ async function createPOFromExtraction(inv, createdBy, file_url = null) {
       item_code,
       quantity_ordered: qty,
       unit_price: (li.rate != null && li.rate !== '') ? parseFloat(li.rate) : null,
-      delivery_date: li.delivery_date || null,
       notes: matched ? null : (li.description || '').trim() || null,
     };
   });
@@ -171,6 +186,20 @@ async function createPOFromExtraction(inv, createdBy, file_url = null) {
   if (supplierNote) noteParts.push(supplierNote);
   const unmatchedCount = lines.filter(l => !l.item_code).length;
   if (unmatchedCount) noteParts.push(`${unmatchedCount} line(s) need an item assigned`);
+
+  // Guard: loop until we land on a genuinely free PO number
+  {
+    let originalNo = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const dup = await queryOne(
+        'SELECT id FROM crm_purchase_orders WHERE po_number = ?', [po_number]
+      );
+      if (!dup) break;
+      if (!originalNo) originalNo = po_number;
+      po_number = await nextSysPONumber();
+    }
+    if (originalNo) noteParts.push(`Duplicate PO number '${originalNo}' — auto-assigned ${po_number}`);
+  }
 
   const poId = await insertPO({
     po_number,
@@ -199,6 +228,7 @@ router.get('/', async (req, res) => {
     LEFT JOIN crm_contacts c ON p.contact_id = c.id
     WHERE 1=1
   `;
+
   const params = [];
   if (status && status !== 'all') { sql += ' AND p.status = ?'; params.push(status); }
   if (company_id) { sql += ' AND p.company_id = ?'; params.push(company_id); }
@@ -350,7 +380,7 @@ router.patch('/:id', async (req, res) => {
 
 // ADD LINE ITEM
 router.post('/:id/items', async (req, res) => {
-  const { item_code, quantity_ordered, unit_price, notes, delivery_date } = req.body;
+  const { item_code, quantity_ordered, unit_price, notes } = req.body;
   if (!quantity_ordered)
     return res.status(400).json({ error: 'quantity_ordered required' });
 
@@ -364,9 +394,9 @@ router.post('/:id/items', async (req, res) => {
 
   const r = await execute(
     `INSERT INTO crm_po_items
-       (po_id, item_code, quantity_ordered, unit_price, notes, delivery_date)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [req.params.id, item_code || null, quantity_ordered, unit_price || null, notes || null, delivery_date || null]
+       (po_id, item_code, quantity_ordered, unit_price, notes)
+     VALUES (?, ?, ?, ?, ?)`,
+    [req.params.id, item_code || null, quantity_ordered, unit_price || null, notes || null]
   );
   res.json({ success: true, id: Number(r.lastId) });
 });
@@ -382,7 +412,7 @@ router.patch('/:id/items/:itemId', async (req, res) => {
   if (['dispatched', 'cancelled'].includes(po.status))
     return res.status(400).json({ error: `Cannot modify a ${po.status} PO` });
 
-  const allowed = ['item_code', 'quantity_ordered', 'unit_price', 'notes', 'delivery_date'];
+  const allowed = ['item_code', 'quantity_ordered', 'unit_price', 'notes'];
   const fields = {};
   for (const k of allowed) if (req.body[k] !== undefined) fields[k] = req.body[k];
   if (!Object.keys(fields).length)
