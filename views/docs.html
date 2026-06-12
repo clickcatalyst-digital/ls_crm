@@ -1904,10 +1904,18 @@
               <option value="expense" ${!isStock?'selected':''}>Expense / service</option>
             </select>
           </div>` : '';
+        const unmatched = !((li.stock_item_name || '').trim());
+        const matchHint = unmatched
+          ? ' — pick a match ⚠️'
+          : (li.stock_match_score ? ' ✓ auto-matched' : '');
         const stockBody = `
           <div class="rv-field">
-            <label>Stock Item</label>
-            <select onchange="_rvLines[${i}].stock_item_name=this.value;syncStockDefaults(${i})" ${dis}>
+            <label>From invoice${li.hsn ? ` · HSN ${esc(li.hsn)}` : ''}</label>
+            <input value="${esc(li.description||'')}" oninput="_rvLines[${i}].description=this.value" ${dis} style="font-size:11px;color:var(--text-muted);">
+          </div>
+          <div class="rv-field">
+            <label style="${unmatched ? 'color:var(--warning);font-weight:700;' : ''}">Stock Item${matchHint}</label>
+            <select onchange="_rvLines[${i}].stock_item_name=this.value;syncStockDefaults(${i})" ${dis} style="${unmatched ? 'border-color:var(--warning);' : ''}">
               ${stockItemOptions(li.stock_item_name || '')}
             </select>
           </div>
@@ -1998,6 +2006,14 @@
     }
     async function rvApprove() {
       if (!_rvInv) return;
+      // Guard: a stock line with no Tally item selected would push a blank stock
+      // item and Tally would reject it / create junk. Force a pick first.
+      if (_rvInv.doc_type === 'purchase_invoice') {
+        const blanks = _rvLines.filter(li => li.kind === 'stock' && !((li.stock_item_name || '').trim()));
+        if (blanks.length) {
+          return showToast(`${blanks.length} stock line(s) have no Tally item selected — pick one for each before approving.`, 'error');
+        }
+      }
       await rvSave(true); // persist edits + rebuild XML first
       await api(`/api/invoices/${_rvInv.id}/approve`, { method: 'POST', body: {} });
       showToast('Approved — local agent will push to Tally');
