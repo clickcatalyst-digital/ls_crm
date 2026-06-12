@@ -15,6 +15,8 @@ let _bankSortDir    = 'asc';
 let _bankDateFrom   = '';
 let _bankDateTo     = '';
 let _bankTxSearch   = '';
+let _bankReconByIdx = {};   // original line index → Tally match status (active statement)
+let _bankReconCache = {};   // statement id → { byIdx, summary, bank_ledger }
 
 /* ── Formatters ─────────────────────────────────────────────────── */
 const _fmtMoney = v =>
@@ -79,32 +81,58 @@ function _renderBankSubTabs() {
   const banks = [...new Set(_bankAllRows.map(r => r.bank_ledger || 'Unassigned'))].sort();
   if (!_bankActiveBank || !banks.includes(_bankActiveBank)) _bankActiveBank = banks[0] || null;
 
+  const tabsHtml = banks.map(b => {
+    const cnt    = _bankAllRows.filter(r => (r.bank_ledger || 'Unassigned') === b).length;
+    const active = b === _bankActiveBank;
+    return `
+      <button onclick="BankTab.selectBank(${JSON.stringify(b)})"
+        style="background:none;border:none;
+               border-bottom:2px solid ${active ? 'var(--primary)' : 'transparent'};
+               color:${active ? 'var(--primary)' : 'var(--text-muted)'};
+               cursor:pointer;font-family:var(--font);font-size:11px;font-weight:700;
+               letter-spacing:0.5px;margin-bottom:-1px;padding:0 18px 12px;
+               text-transform:uppercase;white-space:nowrap;
+               transition:color 0.15s,border-color 0.15s;
+               display:inline-flex;align-items:center;gap:6px;">
+        ${esc(b)}
+        <span style="background:${active ? 'var(--primary)' : 'var(--border)'};
+                     color:${active ? '#fff' : 'var(--text-muted)'};
+                     font-size:9px;font-weight:800;min-width:16px;height:16px;
+                     border-radius:8px;padding:0 4px;
+                     display:inline-flex;align-items:center;justify-content:center;">
+          ${cnt}
+        </span>
+      </button>`;
+  }).join('');
+
   container.innerHTML = `
-    <div style="display:flex;align-items:flex-end;border-bottom:1px solid var(--border);
-                margin-bottom:20px;gap:0;overflow-x:auto;scrollbar-width:none;">
-      ${banks.map(b => {
-        const cnt    = _bankAllRows.filter(r => (r.bank_ledger || 'Unassigned') === b).length;
-        const active = b === _bankActiveBank;
-        return `
-          <button onclick="BankTab.selectBank(${JSON.stringify(b)})"
-            style="background:none;border:none;
-                   border-bottom:2px solid ${active ? 'var(--primary)' : 'transparent'};
-                   color:${active ? 'var(--primary)' : 'var(--text-muted)'};
-                   cursor:pointer;font-family:var(--font);font-size:11px;font-weight:700;
-                   letter-spacing:0.5px;margin-bottom:-1px;padding:0 18px 12px;
-                   text-transform:uppercase;white-space:nowrap;
-                   transition:color 0.15s,border-color 0.15s;
-                   display:inline-flex;align-items:center;gap:6px;">
-            ${esc(b)}
-            <span style="background:${active ? 'var(--primary)' : 'var(--border)'};
-                         color:${active ? '#fff' : 'var(--text-muted)'};
-                         font-size:9px;font-weight:800;min-width:16px;height:16px;
-                         border-radius:8px;padding:0 4px;
-                         display:inline-flex;align-items:center;justify-content:center;">
-              ${cnt}
-            </span>
-          </button>`;
-      }).join('')}
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
+                border-bottom:1px solid var(--border);margin-bottom:20px;">
+      <div style="display:flex;align-items:flex-end;flex:1;min-width:0;
+                  overflow-x:auto;scrollbar-width:none;">
+        ${tabsHtml}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;padding-bottom:8px;">
+        <button onclick="BankTab.create()"
+          style="font-size:12px;font-weight:700;padding:6px 13px;background:var(--primary);
+                 color:#fff;border:1px solid var(--primary);border-radius:var(--radius);
+                 cursor:pointer;white-space:nowrap;">
+          + Create
+        </button>
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;
+                      padding:6px 13px;background:var(--bg);border:1px solid var(--border);
+                      border-radius:var(--radius);color:var(--text);cursor:pointer;white-space:nowrap;
+                      transition:border-color 0.15s,color 0.15s;"
+               onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'"
+               onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+          </svg>
+          Upload
+          <input type="file" id="bankFileInput" accept="application/pdf" style="display:none"
+                 onchange="BankTab.handleUpload(this.files)">
+        </label>
+      </div>
     </div>`;
 }
 
@@ -133,58 +161,63 @@ function _renderStmtSelector(stmts) {
 function _renderAccountInfo(stmt) {
   if (!stmt) return '';
 
-  // Extract all valid transaction dates to calculate fallback boundaries
+  // Effective period: user filter → tx-date bounds → statement header
   const lines = Array.isArray(stmt.line_items) ? stmt.line_items : [];
   const sortedTxDates = lines.map(l => l.date).filter(Boolean).sort();
-
-  // 1. Use user's selected date filters if they exist
-  // 2. If empty, fall back to the min and max dates found across transaction items
-  // 3. Ultimate fallback is the statement's file header values
   const effectiveFrom = _bankDateFrom || (sortedTxDates.length ? sortedTxDates[0] : stmt.statement_from);
-  const effectiveTo = _bankDateTo || (sortedTxDates.length ? sortedTxDates[sortedTxDates.length - 1] : stmt.statement_to);
+  const effectiveTo   = _bankDateTo   || (sortedTxDates.length ? sortedTxDates[sortedTxDates.length - 1] : stmt.statement_to);
+
+  const lblT = 'font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:2px;';
+  const lblB = 'font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);margin-bottom:1px;';
+  const num  = 'font-variant-numeric:tabular-nums;letter-spacing:-0.2px;';
+  const rule = '<div style="width:1px;background:var(--border);height:24px;align-self:center;"></div>';
 
   return `
-    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 24px; align-items: center; box-shadow: var(--shadow);">
-      
-      <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: center;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;
+                padding:16px 20px;margin-bottom:20px;display:flex;flex-wrap:wrap;
+                justify-content:space-between;gap:24px;align-items:center;box-shadow:var(--shadow);">
+
+      <!-- Left: identity -->
+      <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:center;">
         <div>
-          <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 2px;">Account Number</div>
-          <div style="font-size: 14px; font-weight: 700; color: var(--text); font-family: monospace;">${stmt.account_no || '—'}</div>
+          <div style="${lblT}">Account Number</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text);font-family:monospace;">${stmt.account_no || '—'}</div>
         </div>
-        <div style="width: 1px; background: var(--border); height: 24px; align-self: center;"></div>
+        ${rule}
         <div>
-          <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 2px;">Statement Period</div>
-          <div style="font-size: 13px; font-weight: 600; color: var(--text);">${_fmtDate(effectiveFrom)} — ${_fmtDate(effectiveTo)}</div>
+          <div style="${lblT}">Statement Period</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);">${_fmtDate(effectiveFrom)} — ${_fmtDate(effectiveTo)}</div>
         </div>
-        <div style="width: 1px; background: var(--border); height: 24px; align-self: center;"></div>
+        ${rule}
         <div>
-          <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 2px;">Downloaded On</div>
-          <div style="font-size: 13px; font-weight: 600; color: var(--text-muted);">${_fmtDate(stmt.invoice_date)}</div>
+          <div style="${lblT}">Downloaded On</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-muted);">${_fmtDate(stmt.invoice_date)}</div>
         </div>
       </div>
 
-      <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: center; background: var(--bg); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);">
+      <!-- Right: balances, grouped on one line with hairline dividers -->
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:center;
+                  background:var(--bg);padding:8px 18px;border-radius:8px;border:1px solid var(--border);">
         <div>
-          <div style="font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 1px;">Opening Bal</div>
-          <div style="font-size: 12.5px; font-weight: 700; color: var(--text);">${stmt.opening_balance != null ? _fmtMoney(stmt.opening_balance) : '—'}</div>
+          <div style="${lblB}">Opening Bal</div>
+          <div style="font-size:12.5px;font-weight:700;color:var(--text);${num}">${stmt.opening_balance != null ? _fmtMoney(stmt.opening_balance) : '—'}</div>
         </div>
-        <div style="color: var(--border); font-weight: 300; font-size: 14px;">/</div>
+        ${rule}
         <div>
-          <div style="font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 1px;">Closing Bal</div>
-          <div style="font-size: 12.5px; font-weight: 700; color: var(--text);">${stmt.closing_balance != null ? _fmtMoney(stmt.closing_balance) : '—'}</div>
+          <div style="${lblB}">Closing Bal</div>
+          <div style="font-size:12.5px;font-weight:700;color:var(--text);${num}">${stmt.closing_balance != null ? _fmtMoney(stmt.closing_balance) : '—'}</div>
         </div>
-        <div style="color: var(--border); font-weight: 300; font-size: 14px;">/</div>
+        ${rule}
         <div>
-          <div style="font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 1px;">Withdrawals</div>
-          <div style="font-size: 12.5px; font-weight: 700; color: var(--danger);">${stmt.total_debit != null ? _fmtMoney(stmt.total_debit) : '—'}</div>
+          <div style="${lblB}">Withdrawals</div>
+          <div style="font-size:12.5px;font-weight:700;color:var(--danger);${num}">${stmt.total_debit != null ? _fmtMoney(stmt.total_debit) : '—'}</div>
         </div>
-        <div style="color: var(--border); font-weight: 300; font-size: 14px;">/</div>
+        ${rule}
         <div>
-          <div style="font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); margin-bottom: 1px;">Deposits</div>
-          <div style="font-size: 12.5px; font-weight: 700; color: var(--success);">${stmt.total_credit != null ? _fmtMoney(stmt.total_credit) : '—'}</div>
+          <div style="${lblB}">Deposits</div>
+          <div style="font-size:12.5px;font-weight:700;color:var(--success);${num}">${stmt.total_credit != null ? _fmtMoney(stmt.total_credit) : '—'}</div>
         </div>
       </div>
-
     </div>`;
 }
 
@@ -345,6 +378,33 @@ function _parseSmartTags(desc) {
   return badges.length ? `<div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">${badges.join('')}</div>` : '—';
 }
 
+/* ── Tally reconciliation badge ──────────────────────────────────── */
+function _reconBadge(status) {
+  const inTally = (status === 'confirmed' || status === 'high' || status === 'matched');
+  if (inTally) {
+    const note = status === 'confirmed' ? 'Matched in Tally (reference + amount)'
+               : status === 'high'      ? 'Matched in Tally (exact date + amount)'
+               :                          'Matched in Tally (amount, within ±3 days)';
+    return `<span title="${note}"
+      style="display:inline-flex;align-items:center;gap:4px;
+             background:color-mix(in srgb,var(--success) 12%,var(--bg));color:var(--success);
+             border:1px solid color-mix(in srgb,var(--success) 30%,transparent);
+             padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800;white-space:nowrap;">
+      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+      In Tally</span>`;
+  }
+  if (status === 'review') {
+    return `<span title="Possible match — needs manual review"
+      style="display:inline-flex;align-items:center;gap:4px;
+             background:color-mix(in srgb,var(--warning) 14%,var(--bg));color:#d97706;
+             border:1px solid color-mix(in srgb,var(--warning) 30%,transparent);
+             padding:2px 7px;border-radius:5px;font-size:10px;font-weight:800;white-space:nowrap;">
+      Review</span>`;
+  }
+  return `<span title="Not found in Tally" style="color:var(--text-muted);font-size:11px;opacity:0.45;">—</span>`;
+}
+
 /* ── Transaction table ───────────────────────────────────────────── */
 function _renderTxTable(lines) {
   // Filter
@@ -401,14 +461,21 @@ function _renderTxTable(lines) {
         <td style="padding:8px 10px;font-size:12px;white-space:nowrap;color:var(--text);">
           ${li.date ? _fmtDate(li.date) : '—'}
         </td>
-        <td style="padding:8px 10px;font-size:12px;max-width:240px;word-break:break-word;">
-          ${esc(li.description || '—')}
+        <td style="padding:8px 10px;font-size:12px;max-width:240px;">
+          <div title="${esc(li.description || '')}"
+               style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;
+                      font-family:monospace;font-size:11px;color:var(--text-muted);">
+            ${esc(li.description || '—')}
+          </div>
         </td>
         <td style="padding:8px 10px;font-size:12px;text-align:right;font-weight:700;color:var(--danger);">
           ${isDr && disp ? disp : ''}
         </td>
         <td style="padding:8px 10px;font-size:12px;text-align:right;font-weight:700;color:var(--success);">
           ${!isDr && disp ? disp : ''}
+        </td>
+        <td style="padding:8px 10px;text-align:center;">
+          ${_reconBadge(_bankReconByIdx[oi])}
         </td>
         <td style="padding:8px 10px;font-size:12px;vertical-align:middle;white-space:nowrap;">
           ${_parseSmartTags(li.description)}
@@ -460,6 +527,10 @@ function _renderTxTable(lines) {
               ${_th('description', 'Description')}
               ${_th('withdrawal',  'Withdrawal (Dr)', 'right')}
               ${_th('deposit',     'Deposit (Cr)',    'right')}
+              <th style="padding:10px;text-align:center;font-size:10px;font-weight:700;
+                         text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">
+                Tally
+              </th>
               <th style="padding:10px;text-align:left;font-size:10px;font-weight:700;
                          text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">
                 Smart Track / Ref
@@ -521,6 +592,19 @@ async function _renderBankContent() {
       return;
     }
   }
+
+  // Tally reconciliation status for this statement (non-blocking — never breaks the table)
+  if (_bankActiveStmt && !_bankReconCache[_bankActiveStmt]) {
+    try {
+      const recon = await api(`/api/invoices/${_bankActiveStmt}/reconcile`);
+      const byIdx = {};
+      (recon.lines || []).forEach(l => { byIdx[l._idx] = (l.match && l.match.status) || 'unmatched'; });
+      _bankReconCache[_bankActiveStmt] = { byIdx, summary: recon.summary || {}, bank_ledger: recon.bank_ledger };
+    } catch (e) {
+      _bankReconCache[_bankActiveStmt] = { byIdx: {}, summary: {}, bank_ledger: null };
+    }
+  }
+  _bankReconByIdx = (_bankReconCache[_bankActiveStmt] || {}).byIdx || {};
 
   const stmt  = _bankStmtCache[_bankActiveStmt] || null;
   const lines = (stmt && Array.isArray(stmt.line_items)) ? stmt.line_items : [];
@@ -598,12 +682,63 @@ window.bankSaveNotes = async function() {
   } catch (e) { showToast('Save failed', 'error'); }
 };
 
+/* ── Tab-level Create / Upload toolbar ──────────────────────────── */
+// function _injectBankToolbar() {
+//   const subTabs = document.getElementById('bankSubTabs');
+//   if (!subTabs || document.getElementById('bankCustomToolbar')) return;
+
+//   const wrapper = document.createElement('div');
+//   wrapper.id = 'bankCustomToolbar';
+//   wrapper.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:16px;';
+//   wrapper.innerHTML = `
+//     <button onclick="BankTab.create()"
+//       style="flex-shrink:0;font-size:12px;font-weight:700;padding:7px 13px;background:var(--primary);color:#fff;border:1px solid var(--primary);border-radius:var(--radius);cursor:pointer;white-space:nowrap;">
+//       + Create
+//     </button>
+//     <label style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:7px 13px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);cursor:pointer;white-space:nowrap;">
+//       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+//         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+//       </svg>
+//       Upload
+//       <input type="file" id="bankFileInput" accept="application/pdf" style="display:none"
+//              onchange="BankTab.handleUpload(this.files)">
+//     </label>`;
+
+//   subTabs.parentNode.insertBefore(wrapper, subTabs);
+// }
+
+function _bankCreate() {
+  if (typeof openManual === 'function') openManual('bank_statement');   // global, defined in docs.html
+  else showToast('Create unavailable', 'error');
+}
+
+async function _handleBankUpload(files) {
+  const file = files[0];
+  const fi = document.getElementById('bankFileInput');
+  if (fi) fi.value = '';
+  if (!file) return;
+  if (file.type !== 'application/pdf') { showToast('Only PDF files are supported', 'error'); return; }
+  const fd = new FormData();
+  fd.append('pdf', file);
+  fd.append('hint_doc_type', 'bank_statement');
+  try {
+    const res  = await fetch('/api/invoices/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    startProcessing(data.invoiceId, file.name, false);      // global, defined in docs.html
+  } catch (e) {
+    console.error('[Bank Upload] failed:', e);
+    showToast(e.message || 'Upload failed', 'error');
+  }
+}
+
 /* ── Full data reload ────────────────────────────────────────────── */
 async function _loadBank() {
   try {
     const all      = await api('/api/invoices');
     _bankAllRows   = all.filter(d => d.doc_type === 'bank_statement');
     _bankStmtCache = {}; // bust cache so edits to a statement are reflected
+    _bankReconCache = {}; // bust reconciliation cache too
     _renderBankIntel(_bankAllRows);
     _renderBankSubTabs();
     await _renderBankContent();
@@ -623,6 +758,8 @@ async function _initBankTab() {
 window.BankTab = {
   init: _initBankTab,
   load: _loadBank,
+  create:       _bankCreate,
+  handleUpload: _handleBankUpload,
 
   selectBank(bank) {
     _bankActiveBank = bank;

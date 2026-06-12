@@ -3,7 +3,7 @@
 // Depends on: app.js (esc, api, formatDate, PaginatedTable)
 // Shared from docs.html: openReview()
 
-const INV_TYPES = ['purchase_invoice', 'freight_invoice', 'bill_of_entry'];
+const INV_TYPES = ['purchase_invoice', 'freight_invoice'];
 
 const INV_TYPE_LABEL = {
   purchase_invoice: 'Purchase',
@@ -103,8 +103,10 @@ const invTable = new PaginatedTable({
         if (d.status === 'pending') badgeStyle = 'background:color-mix(in srgb, var(--warning) 12%, var(--bg)); color:#d97706; border:1px solid color-mix(in srgb, var(--warning) 30%, transparent);';
         if (d.status === 'approved') badgeStyle = 'background:color-mix(in srgb, var(--success) 12%, var(--bg)); color:var(--success); border:1px solid color-mix(in srgb, var(--success) 30%, transparent);';
         if (d.status === 'pushed') badgeStyle = 'background:var(--primary); color:#fff;';
+        if (d.status === 'in_tally') badgeStyle = 'background:var(--success); color:#fff;';
         if (d.status === 'rejected') badgeStyle = 'background:color-mix(in srgb, var(--danger) 12%, var(--bg)); color:var(--danger); border:1px solid color-mix(in srgb, var(--danger) 30%, transparent);';
-        return `<span style="font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; padding:4px 8px; border-radius:6px; display:inline-block; ${badgeStyle}">${esc(d.status)}</span>`;
+        const stageLabel = d.status === 'in_tally' ? 'In Tally' : d.status;
+        return `<span style="font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; padding:4px 8px; border-radius:6px; display:inline-block; ${badgeStyle}">${esc(stageLabel)}</span>`;
     }},
     
     { label: 'Added', render: d => `<span style="color:var(--text-muted); font-size:11px; font-weight:500;">${formatDate(d.created_at)}</span>` }
@@ -179,43 +181,93 @@ function _renderInvIntel(rows) {
     </div>`;
 }
 
-/* ── Live Multi-Filter & Search Toolbar Injection ──────────────── */
+/* ── PO-style Create / Upload / Search / Filters toolbar ───────── */
 function _injectInvoiceToolbar() {
   const tableContainer = document.getElementById('invPane-table');
-  if (!tableContainer) return;
+  if (!tableContainer || document.getElementById('invCustomToolbar')) return;
 
-  let existingToolbar = document.getElementById('invCustomToolbar');
-  if (existingToolbar) return;
+  // Hide the old status-pill toolbar that lives in docs.html
+  document.querySelector('#pane-invoices .tab-toolbar')?.style.setProperty('display', 'none');
 
-  const toolbarWrapper = document.createElement('div');
-  toolbarWrapper.id = 'invCustomToolbar';
-  toolbarWrapper.style.cssText = 'display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; width:100%;';
+  const wrapper = document.createElement('div');
+  wrapper.id = 'invCustomToolbar';
+  wrapper.style.cssText = 'margin-bottom:12px;';
+  wrapper.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;">
 
-  toolbarWrapper.innerHTML = `
-    <div style="position:relative; flex:1; min-width:200px; max-width:320px;">
-      <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); pointer-events:none; color:var(--text-muted); display:flex; align-items:center;">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
+      <!-- Create (with invoice-type menu) -->
+      <div id="invCreateWrap" style="position:relative;flex-shrink:0;">
+        <button onclick="InvoicesTab.toggleCreateMenu(event)"
+          style="font-size:12px;font-weight:700;padding:7px 13px;background:var(--primary);color:#fff;border:1px solid var(--primary);border-radius:var(--radius);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;">
+          + Create
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div id="invCreateMenu" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 28px rgba(0,0,0,0.18);min-width:190px;overflow:hidden;">
+          <button onclick="InvoicesTab.create('purchase_invoice')" style="display:block;width:100%;text-align:left;background:none;border:none;color:var(--text);font-family:var(--font);font-size:12.5px;font-weight:600;padding:9px 14px;cursor:pointer;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">Purchase Invoice</button>
+          <button onclick="InvoicesTab.create('freight_invoice')" style="display:block;width:100%;text-align:left;background:none;border:none;color:var(--text);font-family:var(--font);font-size:12.5px;font-weight:600;padding:9px 14px;cursor:pointer;border-top:1px solid var(--border);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">Freight Invoice</button>
+        </div>
+      </div>
+
+      <!-- Upload (AI auto-classifies) -->
+      <label style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:7px 13px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);cursor:pointer;white-space:nowrap;">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
         </svg>
-      </span>
-      <input class="search-input" id="invSearchInput" placeholder="Search number, vendor, commodity…" 
-             style="padding-left:34px; width:100%; box-sizing:border-box; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); padding:8px 10px 8px 34px; font-size:12.5px;"
-             oninput="InvoicesTab.handleSearch(this.value)">
+        Upload
+        <input type="file" id="invFileInput" accept="application/pdf" style="display:none"
+               onchange="InvoicesTab.handleUpload(this.files)">
+      </label>
+
+      <!-- Search -->
+      <div style="flex:1;position:relative;">
+        <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-muted);display:flex;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
+          </svg>
+        </span>
+        <input id="invSearchInput" placeholder="Search number, vendor, commodity…"
+               style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 10px 7px 34px;font-size:12px;font-family:var(--font);"
+               oninput="InvoicesTab.handleSearch(this.value)">
+      </div>
+
+      <!-- Filters -->
+      <button id="invFilterBtn" onclick="InvoicesTab.toggleFilters()"
+        style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:7px 13px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);cursor:pointer;white-space:nowrap;transition:background 0.15s,border-color 0.15s;">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z"/>
+        </svg>
+        Filters
+        <span id="invFilterCount" style="display:none;background:var(--primary);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:10px;min-width:14px;text-align:center;"></span>
+      </button>
     </div>
 
-    <div style="display:flex; align-items:center; gap:8px;">
-      <label style="font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted);">Doc Category</label>
-      <select class="tab-select" id="invTypeFilterSelect" style="cursor:pointer; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); padding:7px 12px; font-size:12.5px; font-weight:500;"
-              onchange="InvoicesTab.handleTypeFilter(this.value)">
-        <option value="all">All Classifications</option>
-        <option value="purchase_invoice">Purchase Invoices</option>
-        <option value="freight_invoice">Freight Log Invoices</option>
-        <option value="bill_of_entry">Bills of Entry (BOE)</option>
-      </select>
-    </div>
-  `;
+    <!-- Filter panel (Doc Category + Stage) -->
+    <div id="invFilterPanel" style="display:none;margin-top:8px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);">
+      <div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px;">Doc Category</div>
+          <select id="invTypeFilterSelect"
+            onchange="InvoicesTab.handleTypeFilter(this.value)"
+            style="font-family:var(--font);font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:6px 10px;min-width:180px;">
+            <option value="all">All Classifications</option>
+            <option value="purchase_invoice">Purchase Invoices</option>
+            <option value="freight_invoice">Freight Log Invoices</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px;">Stage</div>
+          <div class="doc-filters" id="invStageFilters" style="margin:0;">
+            <button class="doc-filter active" data-status="all"      onclick="InvoicesTab.setFilter('all')">All</button>
+            <button class="doc-filter"        data-status="pending"  onclick="InvoicesTab.setFilter('pending')">Pending</button>
+            <button class="doc-filter"        data-status="approved" onclick="InvoicesTab.setFilter('approved')">Approved</button>
+            <button class="doc-filter"        data-status="pushed"   onclick="InvoicesTab.setFilter('pushed')">Pushed</button>
+            <button class="doc-filter"        data-status="rejected" onclick="InvoicesTab.setFilter('rejected')">Rejected</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
 
-  tableContainer.parentNode.insertBefore(toolbarWrapper, tableContainer);
+  tableContainer.parentNode.insertBefore(wrapper, tableContainer);
 }
 
 /* ── Pipeline Processing Layer ─────────────────────────────────── */
@@ -257,10 +309,70 @@ function _applyInvFilter() {
 
 function _setInvFilter(status) {
   _invFilter = status;
-  document.querySelectorAll('#invStatusFilters .doc-filter')
+  document.querySelectorAll('#invStageFilters .doc-filter')
     .forEach(b => b.classList.toggle('active', b.dataset.status === status));
+  _updateInvFilterCount();
   _applyInvFilter();
 }
+
+/* ── Toolbar helpers (Create menu / Filters / Upload) ──────────── */
+function _toggleInvFilters() {
+  const panel = document.getElementById('invFilterPanel');
+  const btn   = document.getElementById('invFilterBtn');
+  if (!panel) return;
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  if (btn) btn.style.background = open ? 'var(--bg)' : 'color-mix(in srgb,var(--primary) 10%,var(--bg))';
+}
+
+function _updateInvFilterCount() {
+  const el = document.getElementById('invFilterCount');
+  if (!el) return;
+  const n = (_invFilter !== 'all' ? 1 : 0) + (_invTypeFilter !== 'all' ? 1 : 0);
+  el.textContent = n;
+  el.style.display = n > 0 ? 'inline' : 'none';
+}
+
+function _toggleInvCreateMenu(ev) {
+  if (ev) ev.stopPropagation();
+  const m = document.getElementById('invCreateMenu');
+  if (!m) return;
+  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+
+function _invCreate(type) {
+  const m = document.getElementById('invCreateMenu');
+  if (m) m.style.display = 'none';
+  if (typeof openManual === 'function') openManual(type);   // global, defined in docs.html
+  else showToast('Create unavailable', 'error');
+}
+
+async function _handleInvUpload(files) {
+  const file = files[0];
+  const fi = document.getElementById('invFileInput');
+  if (fi) fi.value = '';
+  if (!file) return;
+  if (file.type !== 'application/pdf') { showToast('Only PDF files are supported', 'error'); return; }
+  const fd = new FormData();
+  fd.append('pdf', file);                 // no hint → AI auto-classifies the invoice type
+  try {
+    const res  = await fetch('/api/invoices/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    startProcessing(data.invoiceId, file.name, false);      // global, defined in docs.html
+  } catch (e) {
+    console.error('[Invoice Upload] failed:', e);
+    showToast(e.message || 'Upload failed', 'error');
+  }
+}
+
+// Close the Create menu on any outside click
+document.addEventListener('click', e => {
+  const m = document.getElementById('invCreateMenu');
+  if (m && m.style.display !== 'none' && !e.target.closest('#invCreateWrap')) {
+    m.style.display = 'none';
+  }
+});
 
 /* ── Init Entry Node ───────────────────────────────────────────── */
 async function _initInvTab() {
@@ -270,11 +382,15 @@ async function _initInvTab() {
 }
 
 /* ── Public Namespace Interface Exposure ───────────────────────── */
-window.InvoicesTab = { 
-  init: _initInvTab, 
-  load: _loadInvoices, 
-  setFilter: _setInvFilter,
-  
+window.InvoicesTab = {
+  init:             _initInvTab,
+  load:             _loadInvoices,
+  setFilter:        _setInvFilter,
+  toggleFilters:    _toggleInvFilters,
+  toggleCreateMenu: _toggleInvCreateMenu,
+  create:           _invCreate,
+  handleUpload:     _handleInvUpload,
+
   handleSearch(val) {
     _invSearchQuery = val.trim();
     _applyInvFilter();
@@ -282,6 +398,7 @@ window.InvoicesTab = {
 
   handleTypeFilter(val) {
     _invTypeFilter = val;
+    _updateInvFilterCount();
     _applyInvFilter();
   }
 };
